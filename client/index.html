@@ -1,52 +1,13 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Adaptive Video Streaming</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="container">
-        <h1>Adaptive Video Streaming</h1>
-        <div class="video-container">
-            <img src="http://localhost:5000/video_feed" alt="Video Stream">
-        </div>
-        <div class="metrics-container">
-            <h2>Network Metrics</h2>
-            <div class="metric">
-                <span>Bandwidth:</span>
-                <span id="bandwidth">-- Mbps</span>
-            </div>
-            <div class="metric">
-                <span>Latency:</span>
-                <span id="latency">-- ms</span>
-            </div>
-            <div class="metric">
-                <span>Packet Loss:</span>
-                <span id="packet-loss">-- %</span>
-            </div>
-            <div class="metric">
-                <span>Current Quality:</span>
-                <span id="quality">--</span>
-            </div>
-        </div>
-    </div>
-    <script>
-        // Update metrics every second
-        setInterval(async () => {
-            try {
-                const response = await fetch('/metrics');
-                const data = await response.json();
-                
-                document.getElementById('bandwidth').textContent = `${data.bandwidth.toFixed(2)} Mbps`;
-                document.getElementById('latency').textContent = `${data.latency.toFixed(0)} ms`;
-                document.getElementById('packet-loss').textContent = `${data.packet_loss.toFixed(1)} %`;
-                document.getElementById('quality').textContent = data.quality;
-            } catch (error) {
-                console.error('Error fetching metrics:', error);
-            }
-        }, 1000);
-    </script>
-</body>
-</html> 
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Adaptive Streaming</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -2,7 +2,9 @@ from flask import Flask, Response, render_template
 from flask_cors import CORS
 import os
 
-app = Flask(__name__)
+# Template klasörünü client olarak ayarla
+template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'client'))
+app = Flask(__name__, template_folder=template_dir, static_folder=template_dir)
 CORS(app)
 
 @app.route('/')
