@@ -1,8 +1,9 @@
-import { Box, Container, CssBaseline, ThemeProvider, Typography, createTheme, Paper, LinearProgress, ButtonGroup, Button } from '@mui/material'
+import { Box, Container, CssBaseline, ThemeProvider, Typography, createTheme, Paper, LinearProgress, ButtonGroup, Button, Switch, FormControlLabel } from '@mui/material'
 import { useState, useEffect } from 'react'
+import WebRTCVideo from './components/WebRTCVideo'
 
 // API URL - Flask sunucusunun adresi
-const API_URL = 'http://127.0.0.1:5000';
+const API_URL = 'http://localhost:5000';
 
 // Quality ve Metric tipleri
 type QualityLevel = 'low' | 'medium' | 'high';
@@ -12,6 +13,13 @@ interface NetworkMetricsType {
   latency: number;
   packetLoss: number;
 }
+
+// Centralized quality profile config
+const QUALITY_PROFILES: Record<QualityLevel, { label: string; resolution: string; bitrate: string; color: string }> = {
+  low:    { label: 'Low Quality',    resolution: '320x240 (4:3) 30fps',   bitrate: '0.3 Mbps', color: '#ef4444' },
+  medium: { label: 'Medium Quality', resolution: '640x360 (16:9) 30fps',  bitrate: '0.8 Mbps', color: '#f59e0b' },
+  high:   { label: 'High Quality',   resolution: '1280x720 (16:9) 30fps', bitrate: '2.0 Mbps', color: '#22c55e' },
+};
 
 // Create a theme instance
 const theme = createTheme({
@@ -65,31 +73,18 @@ const theme = createTheme({
 interface VideoPlayerProps {
   videoQuality: QualityLevel;
   onQualityChange?: (quality: QualityLevel) => void;
+  useWebRTC: boolean;
 }
 
 // VideoPlayer bileşeni
-function VideoPlayer({ videoQuality, onQualityChange }: VideoPlayerProps) {
+function VideoPlayer({ videoQuality, onQualityChange, useWebRTC }: VideoPlayerProps) {
   // Timestamp ile video URL'i oluşturma
   const getVideoUrl = () => {
     const timestamp = new Date().getTime();
     return `${API_URL}/video_feed?t=${timestamp}&quality=${videoQuality}`;
   };
 
-  // Kalite detaylarını belirleme
-  const getQualityDetails = (quality: QualityLevel) => {
-    switch (quality) {
-      case 'low':
-        return { label: 'Low Quality', resolution: '640x360', bitrate: '0.5 Mbps', color: '#ef4444' };
-      case 'medium':
-        return { label: 'Medium Quality', resolution: '1280x720', bitrate: '1.5 Mbps', color: '#f59e0b' };
-      case 'high':
-        return { label: 'High Quality', resolution: '1920x1080', bitrate: '3.0 Mbps', color: '#22c55e' };
-      default:
-        return { label: 'Medium Quality', resolution: '1280x720', bitrate: '1.5 Mbps', color: '#f59e0b' };
-    }
-  };
-
-  const qualityDetails = getQualityDetails(videoQuality);
+  const qualityDetails = QUALITY_PROFILES[videoQuality];
 
   return (
     <Paper
@@ -115,74 +110,73 @@ function VideoPlayer({ videoQuality, onQualityChange }: VideoPlayerProps) {
           alignItems: 'center',
         }}
       >
-        <img
-          src={getVideoUrl()}
-          alt="Video Stream"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-          }}
-          onError={(e) => {
-            // Hata durumunda görüntüyü yeniden yükle
-            const img = e.target as HTMLImageElement;
-            img.src = getVideoUrl();
-          }}
-        />
-      </Box>
-
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Typography
-            variant="body2"
-            sx={{
-              px: 1.5,
-              py: 0.5,
-              borderRadius: 1,
-              fontWeight: 600,
-              mr: 2,
-              color: 'white',
-              bgcolor: qualityDetails.color,
+        {useWebRTC ? (
+          <WebRTCVideo serverUrl={API_URL} />
+        ) : (
+          <img
+            src={getVideoUrl()}
+            alt="Video Stream"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
             }}
-          >
-            {qualityDetails.label}
-          </Typography>
-
-          <Typography variant="body2" color="text.secondary" sx={{ mr: 2 }}>
-            {qualityDetails.resolution}
-          </Typography>
-
-          <Typography variant="body2" color="text.secondary">
-            {qualityDetails.bitrate}
-          </Typography>
-        </Box>
-
-        {onQualityChange && (
-          <ButtonGroup size="small" variant="outlined">
-            <Button
-              onClick={() => onQualityChange('low')}
-              variant={videoQuality === 'low' ? 'contained' : 'outlined'}
-              color="error"
-            >
-              Low
-            </Button>
-            <Button
-              onClick={() => onQualityChange('medium')}
-              variant={videoQuality === 'medium' ? 'contained' : 'outlined'}
-              color="warning"
-            >
-              Medium
-            </Button>
-            <Button
-              onClick={() => onQualityChange('high')}
-              variant={videoQuality === 'high' ? 'contained' : 'outlined'}
-              color="success"
-            >
-              High
-            </Button>
-          </ButtonGroup>
+            onError={(e) => {
+              // Hata durumunda görüntüyü yeniden yükle
+              const img = e.target as HTMLImageElement;
+              img.src = getVideoUrl();
+            }}
+          />
         )}
       </Box>
+
+      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            px: 1.5,
+            py: 0.5,
+            borderRadius: 1,
+            fontWeight: 600,
+            mr: 2,
+            color: 'white',
+            bgcolor: qualityDetails.color,
+          }}
+        >
+          {qualityDetails.label}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mr: 2 }}>
+          {qualityDetails.resolution}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {qualityDetails.bitrate}
+        </Typography>
+      </Box>
+      {onQualityChange && (
+        <ButtonGroup size="small" variant="outlined">
+          <Button
+            onClick={() => onQualityChange('low')}
+            variant={videoQuality === 'low' ? 'contained' : 'outlined'}
+            color="error"
+          >
+            Low
+          </Button>
+          <Button
+            onClick={() => onQualityChange('medium')}
+            variant={videoQuality === 'medium' ? 'contained' : 'outlined'}
+            color="warning"
+          >
+            Medium
+          </Button>
+          <Button
+            onClick={() => onQualityChange('high')}
+            variant={videoQuality === 'high' ? 'contained' : 'outlined'}
+            color="success"
+          >
+            High
+          </Button>
+        </ButtonGroup>
+      )}
     </Paper>
   );
 }
@@ -388,12 +382,14 @@ function NetworkMetrics({ metrics, currentQuality = 'medium', onQualityChange }:
 
 // Ana uygulama bileşeni
 function App() {
-  const [videoQuality, setVideoQuality] = useState<QualityLevel>('medium')
-  const [networkMetrics, setNetworkMetrics] = useState<NetworkMetricsType>({
+  const [metrics, setMetrics] = useState<NetworkMetricsType>({
     bandwidth: 0,
     latency: 0,
     packetLoss: 0,
-  })
+  });
+  const [quality, setQuality] = useState<QualityLevel>('medium');
+  const [autoControl, setAutoControl] = useState(true);
+  const [useWebRTC, setUseWebRTC] = useState(true);
 
   // API'den ağ metriklerini alma fonksiyonu
   const fetchNetworkMetrics = async () => {
@@ -402,17 +398,15 @@ function App() {
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
-      
       const data = await response.json();
-      setNetworkMetrics({
+      setMetrics({
         bandwidth: data.bandwidth || 0,
         latency: data.latency || 0,
         packetLoss: data.packet_loss || 0,
       });
-      
-      // Kalite değişikliğini kontrol et
-      if (data.current_quality && data.current_quality !== videoQuality) {
-        setVideoQuality(data.current_quality as QualityLevel);
+      // Sadece otomatik modda kalite değişikliğini uygula
+      if (!autoControl && data.current_quality && data.current_quality !== quality) {
+        setQuality(data.current_quality as QualityLevel);
       }
     } catch (error) {
       console.error('Error fetching network metrics:', error);
@@ -425,12 +419,10 @@ function App() {
       const response = await fetch(`${API_URL}/api/set-quality/${quality}`, {
         method: 'POST',
       });
-      
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
-      
-      setVideoQuality(quality);
+      setQuality(quality);
     } catch (error) {
       console.error('Error changing quality:', error);
     }
@@ -438,15 +430,15 @@ function App() {
 
   // Komponent yüklendiğinde ve belirli aralıklarla metrikleri güncelle
   useEffect(() => {
-    // İlk yüklemede metrikleri al
     fetchNetworkMetrics();
-    
-    // Düzenli aralıklarla metrikleri güncelle
     const intervalId = setInterval(fetchNetworkMetrics, 2000);
-    
-    // Komponent unmount edildiğinde interval'i temizle
     return () => clearInterval(intervalId);
-  }, []);
+  }, [autoControl]);
+
+  // Manuel/otomatik kontrol toggle
+  const handleControlToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setAutoControl(event.target.checked);
+  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -478,6 +470,12 @@ function App() {
             <Typography variant="subtitle1" color="text.secondary">
               Real-time video quality adaptation based on network conditions
             </Typography>
+            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+              <FormControlLabel
+                control={<Switch checked={autoControl} onChange={handleControlToggle} color="primary" />}
+                label={autoControl ? 'Automatic Quality Control' : 'Manual Quality Control'}
+              />
+            </Box>
           </Box>
           <Box
             sx={{
@@ -485,17 +483,18 @@ function App() {
               gap: 3,
               gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' },
               flex: 1,
-              minHeight: 0, // Bu önemli, flex container içinde scroll için
+              minHeight: 0,
             }}
           >
             <VideoPlayer 
-              videoQuality={videoQuality} 
-              onQualityChange={changeQuality}
+              videoQuality={quality} 
+              onQualityChange={autoControl ? undefined : changeQuality}
+              useWebRTC={useWebRTC}
             />
             <NetworkMetrics 
-              metrics={networkMetrics}
-              onQualityChange={changeQuality} 
-              currentQuality={videoQuality}
+              metrics={metrics}
+              currentQuality={quality}
+              onQualityChange={autoControl ? undefined : changeQuality}
             />
           </Box>
         </Container>

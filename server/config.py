@@ -29,23 +29,23 @@ LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 # Network quality thresholds
 QUALITY_THRESHOLDS = {
     'low': {
-        'resolution': (640, 360),
-        'bitrate': 500,  # Kbps
+        'resolution': (320, 240),  # 240p 4:3
+        'bitrate': 300,  # Kbps
         'min_bandwidth': 0,  # Mbps
         'max_latency': 500,  # ms
         'max_packet_loss': 10,  # %
     },
     'medium': {
-        'resolution': (1280, 720),
-        'bitrate': 1500,  # Kbps
-        'min_bandwidth': 2,  # Mbps
+        'resolution': (640, 360),  # 360p 16:9
+        'bitrate': 800,  # Kbps
+        'min_bandwidth': 1,  # Mbps
         'max_latency': 150,  # ms
         'max_packet_loss': 5,  # %
     },
     'high': {
-        'resolution': (1920, 1080),
-        'bitrate': 3000,  # Kbps 
-        'min_bandwidth': 5,  # Mbps
+        'resolution': (1280, 720),  # 720p 16:9
+        'bitrate': 2000,  # Kbps
+        'min_bandwidth': 3,  # Mbps
         'max_latency': 75,  # ms
         'max_packet_loss': 2,  # %
     }

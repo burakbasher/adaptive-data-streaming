@@ -1,0 +1,2 @@
+timestamp,previous_quality,new_quality,bandwidth_mbps,latency_ms,packet_loss_percent
+2025-05-06T20:08:47.597502,medium,high,9.63,53.37,1.14

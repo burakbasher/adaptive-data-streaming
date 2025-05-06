@@ -8,6 +8,7 @@ import cv2
 import time
 import logging
 import threading
+import numpy as np
 from typing import Generator, Optional, Tuple
 
 # Import configuration
@@ -25,14 +26,16 @@ class StreamEngine:
     Video streaming engine that adapts quality based on network conditions
     """
     
-    def __init__(self, video_path: str = SAMPLE_VIDEO_PATH):
+    def __init__(self, video_path: str = None, use_webcam: bool = False):
         """
         Initialize the streaming engine
         
         Args:
-            video_path: Path to the video file
+            video_path: Path to the video file (optional if using webcam)
+            use_webcam: Whether to use webcam instead of video file
         """
-        self.video_path = video_path
+        self.use_webcam = use_webcam
+        self.video_path = video_path if not use_webcam else SAMPLE_VIDEO_PATH
         self.video_capture = None
         self.current_quality = 'medium'
         self.streaming = False
@@ -46,11 +49,13 @@ class StreamEngine:
         self.fps = FPS
         self.frame_time = 1.0 / self.fps
         
-        # Check if video file exists
-        if not os.path.exists(video_path):
-            raise VideoStreamError(f"Video file not found: {video_path}")
+        # Check if video file exists (only if not using webcam)
+        if not use_webcam and not os.path.exists(self.video_path):
+            raise VideoStreamError(f"Video file not found: {self.video_path}")
         
-        logger.info(f"StreamEngine initialized with video: {video_path}")
+        logger.info(f"StreamEngine initialized with {'webcam' if use_webcam else f'video: {self.video_path}'}")
+        
+        self.force_next_frame = False
     
     def start(self) -> None:
         """Start the streaming thread"""
@@ -59,11 +64,14 @@ class StreamEngine:
             return
         
         try:
-            # Open video file
-            self.video_capture = cv2.VideoCapture(self.video_path)
+            # Open video source (webcam or file)
+            if self.use_webcam:
+                self.video_capture = cv2.VideoCapture(0)  # 0 is usually the default webcam
+            else:
+                self.video_capture = cv2.VideoCapture(self.video_path)
             
             if not self.video_capture.isOpened():
-                raise VideoStreamError(f"Could not open video file: {self.video_path}")
+                raise VideoStreamError(f"Could not open {'webcam' if self.use_webcam else f'video file: {self.video_path}'}")
             
             # Start streaming thread
             self.streaming = True
@@ -110,18 +118,28 @@ class StreamEngine:
                 # Read the next frame
                 success, frame = self.video_capture.read()
                 
-                # If end of video, loop back to beginning
-                if not success:
+                if not success or frame is None:
+                    logger.error("Failed to read frame from camera. Skipping frame.")
+                    time.sleep(0.05)
+                    continue
+                
+                # If end of video, loop back to beginning (only for file)
+                if not self.use_webcam and not success:
                     logger.debug("End of video reached, restarting")
                     self.video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     continue
                 
-                # Resize frame according to current quality
-                resized_frame = self._resize_frame(frame, self.current_quality)
-                
-                # Update current frame (thread-safe)
-                with self.frame_lock:
-                    self.current_frame = resized_frame
+                # Eğer kalite değiştiyse veya ilk frame ise, yeni kaliteyle encode et
+                if self.force_next_frame or self.current_frame is None:
+                    resized_frame = self._resize_frame(frame, self.current_quality)
+                    with self.frame_lock:
+                        self.current_frame = resized_frame
+                    self.force_next_frame = False
+                else:
+                    # Normalde olduğu gibi encode et
+                    resized_frame = self._resize_frame(frame, self.current_quality)
+                    with self.frame_lock:
+                        self.current_frame = resized_frame
                 
                 last_frame_time = time.time()
                 
@@ -181,10 +199,25 @@ class StreamEngine:
         if quality not in QUALITY_THRESHOLDS:
             logger.warning(f"Invalid quality level: {quality}, using medium")
             quality = 'medium'
-            
         if quality != self.current_quality:
             logger.info(f"Changing stream quality: {self.current_quality} -> {quality}")
+            previous_quality = self.current_quality
             self.current_quality = quality
+            self.force_next_frame = True
+            # Eğer webcam kullanılıyorsa, çözünürlüğü donanımda değiştir
+            if self.use_webcam and self.video_capture is not None:
+                width, height = QUALITY_THRESHOLDS[quality]['resolution']
+                self.video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+                self.video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+                # Çözünürlük değiştikten sonra bir frame oku ve kontrol et
+                ret, test_frame = self.video_capture.read()
+                if not ret or test_frame is None or test_frame.shape[0] < 100 or test_frame.shape[1] < 100:
+                    logger.error(f"Camera does not support {width}x{height}, reverting to previous quality: {previous_quality}")
+                    # Eski kaliteye geri dön
+                    prev_width, prev_height = QUALITY_THRESHOLDS[previous_quality]['resolution']
+                    self.video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, prev_width)
+                    self.video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, prev_height)
+                    self.current_quality = previous_quality
     
     def get_frame(self) -> Optional[bytes]:
         """
@@ -219,6 +252,26 @@ class StreamEngine:
             else:
                 # No frame available, wait a bit
                 time.sleep(0.01)
+
+    def _decode_jpeg(self, jpeg_data: bytes) -> np.ndarray:
+        """
+        Decode JPEG data to numpy array
+        
+        Args:
+            jpeg_data: JPEG encoded frame data
+            
+        Returns:
+            Decoded frame as numpy array
+        """
+        try:
+            # Decode JPEG data to numpy array
+            nparr = np.frombuffer(jpeg_data, np.uint8)
+            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            return frame
+        except Exception as e:
+            logger.error(f"Error decoding JPEG: {e}")
+            # Return black frame if decoding fails
+            return np.zeros((480, 640, 3), dtype=np.uint8)
 
 # Example usage
 if __name__ == "__main__":
