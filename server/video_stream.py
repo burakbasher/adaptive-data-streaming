@@ -17,7 +17,7 @@ class VideoStream:
         self.total_frames = 0
         self.quality = 'medium'
         self.width, self.height = self._get_resolution_from_quality(self.quality)
-        self.target_fps = 30  # Sabit FPS
+        self.target_fps = 100  # Sabit FPS
         self.frame_interval = 1.0 / self.target_fps
         self.last_frame_time = 0
         self.open_video()
@@ -87,7 +87,7 @@ class VideoStream:
                 print(f"[VIDEO] Seeking to frame {self.current_frame_index}")
 
     def generate_frames(self, socketio: SocketIO):
-        target_fps = 30
+        target_fps = 100
         frame_interval = 1.0 / target_fps
 
         while self.running:
