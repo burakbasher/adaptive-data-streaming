@@ -299,7 +299,7 @@ if __name__ == "__main__":
             print(f"Suggested Quality: {suggested_quality}")
             print("-" * 50)
             
-            time.sleep(1)
+            time.sleep(0.01)
     finally:
         # Stop the monitor
         monitor.stop()

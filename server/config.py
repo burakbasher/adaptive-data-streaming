@@ -26,27 +26,27 @@ DEBUG_MODE = True
 LOG_LEVEL = logging.INFO
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
-# Network quality thresholds
+# Network quality thresholds - Updated for 3 quality levels
 QUALITY_THRESHOLDS = {
     'low': {
-        'resolution': (640, 360),
+        'resolution': (426, 240),
         'bitrate': 500,  # Kbps
         'min_bandwidth': 0,  # Mbps
         'max_latency': 500,  # ms
         'max_packet_loss': 10,  # %
     },
     'medium': {
-        'resolution': (1280, 720),
-        'bitrate': 1500,  # Kbps
+        'resolution': (640, 360),
+        'bitrate': 1000,  # Kbps
         'min_bandwidth': 2,  # Mbps
-        'max_latency': 150,  # ms
+        'max_latency': 200,  # ms
         'max_packet_loss': 5,  # %
     },
     'high': {
-        'resolution': (1920, 1080),
-        'bitrate': 3000,  # Kbps 
-        'min_bandwidth': 5,  # Mbps
-        'max_latency': 75,  # ms
+        'resolution': (1280, 720),
+        'bitrate': 2500,  # Kbps
+        'min_bandwidth': 4,  # Mbps
+        'max_latency': 100,  # ms
         'max_packet_loss': 2,  # %
     }
 }

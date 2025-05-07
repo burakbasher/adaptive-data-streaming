@@ -1,0 +1,4 @@
+timestamp,bandwidth_mbps,latency_ms,packet_loss_percent,current_quality
+2025-05-06T22:36:49.076317,11.22,60.19,0.98,medium
+2025-05-06T22:36:49.089117,11.22,60.19,0.98,medium
+2025-05-06T22:36:49.099957,11.22,60.19,0.98,medium

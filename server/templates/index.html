@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Stream</title>
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .video-container {
+            position: relative;
+            margin-bottom: 10px;
+        }
+        #image {
+            width: 640px;
+            height: 480px;
+            display: block;
+        }
+        #timeline {
+            width: 640px;
+            height: 20px;
+            background: #eee;
+            margin-top: 5px;
+            cursor: pointer;
+            position: relative;
+        }
+        .controls {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .controls button {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .playback-speed {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .info {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+        }
+        .settings {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+        }
+        select {
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        .video-controls {
+            display: none;
+        }
+        .video-controls.active {
+            display: flex;
+        }
+        .buffer-visualization {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .buffer-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: rgba(200, 200, 200, 0.5);
+        }
+        .buffer-fill {
+            height: 100%;
+            background: rgba(100, 100, 100, 0.5);
+            transition: width 0.1s ease-out;
+        }
+        .network-info {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+            font-size: 14px;
+            display: none;
+        }
+        .network-info.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Video Stream</h1>
+        <div class="settings">
+            <div>
+                <label for="source">Source:</label>
+                <select id="source">
+                    <option value="camera">Kamera</option>
+                    <option value="video">Video</option>
+                </select>
+            </div>
+            <div>
+                <label for="controlMode">Control Mode:</label>
+                <select id="controlMode">
+                    <option value="manual">Manual</option>
+                    <option value="adaptive">Automatic</option>
+                </select>
+            </div>
+            <div id="qualitySelector">
+                <label for="quality">Video Quality:</label>
+                <select id="quality">
+                    <option value="low">Low (240p)</option>
+                    <option value="medium" selected>Medium (360p)</option>
+                    <option value="high">High (720p)</option>
+                </select>
+            </div>
+            <div>
+                <label for="resolution">Camera Resolution:</label>
+                <select id="resolution">
+                    <option value="auto">Auto (Adaptive)</option>
+                    <option value="1280x720">720p 16:9</option>
+                    <option value="640x360">360p 16:9</option>
+                    <option value="320x240">240p 4:3</option>
+                </select>
+            </div>
+        </div>
+        <div class="network-info" id="networkInfo">
+            <h3>Network Metrics</h3>
+            <div>Bandwidth: <span id="bandwidth">0</span> Mbps</div>
+            <div>Latency: <span id="latency">0</span> ms</div>
+            <div>Packet Loss: <span id="packetLoss">0</span>%</div>
+        </div>
+        <div class="video-container">
+            <img id="image" alt="Video stream" />
+            <div class="buffer-visualization">
+                <div class="buffer-bar">
+                    <div class="buffer-fill" id="bufferFill"></div>
+                </div>
+            </div>
+            <canvas id="timeline" width="640" height="20"></canvas>
+            <div class="info">
+                <span>Frame: <span id="currentFrame">0</span>/<span id="totalFrames">0</span></span>
+                <span>Buffer: <span id="bufferCount">0</span></span>
+                <span>Speed: <span id="playbackSpeed">1x</span></span>
+            </div>
+            <div class="controls video-controls" id="videoControls">
+                <button id="playPauseBtn">Duraklat</button>
+                <div class="playback-speed">
+                    <button id="speedDown">-</button>
+                    <span id="currentSpeed">1x</span>
+                    <button id="speedUp">+</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        const image = document.getElementById('image');
+        const timeline = document.getElementById('timeline');
+        const ctx = timeline.getContext('2d');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const speedDown = document.getElementById('speedDown');
+        const speedUp = document.getElementById('speedUp');
+        const currentSpeed = document.getElementById('currentSpeed');
+        const currentFrame = document.getElementById('currentFrame');
+        const totalFrames = document.getElementById('totalFrames');
+        const playbackSpeed = document.getElementById('playbackSpeed');
+        const sourceSelect = document.getElementById('source');
+        const resolutionSelect = document.getElementById('resolution');
+        const videoControls = document.getElementById('videoControls');
+        const bufferFill = document.getElementById('bufferFill');
+        const bufferCount = document.getElementById('bufferCount');
+        const controlModeSelect = document.getElementById('controlMode');
+        const qualitySelector = document.getElementById('qualitySelector');
+        const qualitySelect = document.getElementById('quality');
+        const networkInfo = document.getElementById('networkInfo');
+        const bandwidthDisplay = document.getElementById('bandwidth');
+        const latencyDisplay = document.getElementById('latency');
+        const packetLossDisplay = document.getElementById('packetLoss');
+
+        let isPlaying = true;
+        const SPEEDS = [0.5, 1, 1.5, 2];
+        let currentSpeedIndex = 1;
+        let currentSource = sourceSelect.value;
+        const frameBuffer = [];
+        const MAX_BUFFER_SIZE = 300; 
+        const TARGET_FPS = 30;
+        const FRAME_INTERVAL = 1000 / TARGET_FPS;
+        let lastFrameTime = 0;
+
+        // Timeline drawing
+        function drawTimeline(progress) {
+            ctx.clearRect(0, 0, timeline.width, timeline.height);
+            
+            // Progress bar
+            const fillWidth = progress * timeline.width;
+            ctx.fillStyle = '#22c55e';
+            ctx.fillRect(0, 0, fillWidth, timeline.height);
+            
+            // Progress line
+            ctx.strokeStyle = '#000';
+            ctx.beginPath();
+            ctx.moveTo(fillWidth, 0);
+            ctx.lineTo(fillWidth, timeline.height);
+            ctx.stroke();
+        }
+
+        // Buffer visualization
+        function updateBufferVisualization() {
+            const bufferPercentage = (frameBuffer.length / MAX_BUFFER_SIZE) * 100;
+            bufferFill.style.width = `${bufferPercentage}%`;
+            bufferCount.textContent = frameBuffer.length;
+        }
+
+        // Frame playback
+        function playNextFrame() {
+            const now = performance.now();
+            const elapsed = now - lastFrameTime;
+
+            if (elapsed >= FRAME_INTERVAL && frameBuffer.length > 0) {
+                const frame = frameBuffer.shift();
+                image.src = frame;
+                lastFrameTime = now;
+                updateBufferVisualization();
+            }
+
+            if (isPlaying) {
+                requestAnimationFrame(playNextFrame);
+            }
+        }
+
+        // Timeline click handler
+        timeline.addEventListener('click', (e) => {
+            if (currentSource === 'video') {
+                const rect = timeline.getBoundingClientRect();
+                const position = (e.clientX - rect.left) / rect.width;
+                socket.emit('seek', { position });
+            }
+        });
+
+        // Play/Pause handler
+        playPauseBtn.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            playPauseBtn.textContent = isPlaying ? 'Duraklat' : 'Oynat';
+            socket.emit('play_pause', { is_playing: isPlaying });
+            if (isPlaying) {
+                requestAnimationFrame(playNextFrame);
+            }
+        });
+
+        // Speed control handlers
+        speedDown.addEventListener('click', () => {
+            if (currentSpeedIndex > 0) {
+                currentSpeedIndex--;
+                updateSpeed();
+            }
+        });
+
+        speedUp.addEventListener('click', () => {
+            if (currentSpeedIndex < SPEEDS.length - 1) {
+                currentSpeedIndex++;
+                updateSpeed();
+            }
+        });
+
+        function updateSpeed() {
+            const speed = SPEEDS[currentSpeedIndex];
+            currentSpeed.textContent = `${speed}x`;
+            playbackSpeed.textContent = `${speed}x`;
+            socket.emit('set_speed', { speed });
+        }
+
+        // Source change handler
+        sourceSelect.addEventListener('change', () => {
+            currentSource = sourceSelect.value;
+            socket.emit('set_source', { source: currentSource });
+            videoControls.classList.toggle('active', currentSource === 'video');
+            
+            if (currentSource === 'camera') {
+                const resolution = resolutionSelect.value;
+                if (resolution === 'auto') {
+                    socket.emit('set_control_mode', { mode: 'adaptive' });
+                } else {
+                    const [width, height] = resolution.split('x').map(Number);
+                    socket.emit('set_resolution', { width, height });
+                }
+                qualitySelector.style.display = 'none';
+            } else {
+                qualitySelector.style.display = 'block';
+                const quality = qualitySelect.value;
+                console.log("Setting initial video quality to:", quality);
+                setTimeout(() => {
+                    socket.emit('set_quality', { quality }); 
+                }, 500); // Small delay to ensure backend has switched to video mode
+            }
+        });
+
+        // Resolution change handler
+        resolutionSelect.addEventListener('change', () => {
+            if (currentSource === 'camera') {
+                const resolution = resolutionSelect.value;
+                
+                if (resolution === 'auto') {
+                    // Enable adaptive mode for camera resolution
+                    socket.emit('set_control_mode', { mode: 'adaptive' });
+                    controlModeSelect.value = 'adaptive';
+                    networkInfo.classList.add('active');
+                } else {
+                    // Set manual resolution
+                    const [width, height] = resolution.split('x').map(Number);
+                    socket.emit('set_resolution', { width, height });
+                }
+            }
+        });
+        
+        // Quality change handler
+        qualitySelect.addEventListener('change', () => {
+            console.log("Quality changed to:", qualitySelect.value);
+            console.log("Current source:", currentSource);
+            console.log("Control mode:", controlModeSelect.value);
+            
+            if (currentSource === 'video' && controlModeSelect.value === 'manual') {
+                const quality = qualitySelect.value;
+                console.log("Sending quality change:", quality);
+                socket.emit('set_quality', { quality });
+            }
+        });
+        
+        // Control mode change handler
+        controlModeSelect.addEventListener('change', () => {
+            const mode = controlModeSelect.value;
+            socket.emit('set_control_mode', { mode });
+            
+            // Show/hide quality selector and network info based on mode
+            qualitySelector.style.display = (mode === 'manual' && currentSource === 'video') ? 'block' : 'none';
+            networkInfo.classList.toggle('active', mode === 'adaptive');
+            
+            // If auto resolution was selected and switching to manual, select a fixed resolution
+            if (mode === 'manual' && resolutionSelect.value === 'auto') {
+                resolutionSelect.value = '640x360';
+                if (currentSource === 'camera') {
+                    socket.emit('set_resolution', { width: 640, height: 360 });
+                }
+            }
+        });
+
+        // Socket event handlers
+        socket.on('image', (data) => {
+            if (frameBuffer.length < MAX_BUFFER_SIZE) {
+                frameBuffer.push(`data:image/jpeg;base64,${data}`);
+                updateBufferVisualization();
+            }
+        });
+
+        socket.on('video_info', (info) => {
+            if (info && currentSource === 'video') {
+                currentFrame.textContent = info.current_frame;
+                totalFrames.textContent = info.total_frames;
+                const progress = info.current_frame / info.total_frames;
+                drawTimeline(progress);
+                
+                // Update quality selection if in adaptive mode
+                if (info.control_mode === 'adaptive') {
+                    qualitySelect.value = info.quality;
+                    controlModeSelect.value = 'adaptive';
+                    qualitySelector.style.display = 'none';
+                    networkInfo.classList.add('active');
+                    
+                    // Update network metrics display
+                    if (info.network_metrics) {
+                        bandwidthDisplay.textContent = info.network_metrics.bandwidth;
+                        latencyDisplay.textContent = info.network_metrics.latency;
+                        packetLossDisplay.textContent = info.network_metrics.packet_loss;
+                    }
+                } else {
+                    controlModeSelect.value = 'manual';
+                    qualitySelector.style.display = 'block';
+                    networkInfo.classList.remove('active');
+                }
+                
+                if (info.is_playing !== isPlaying) {
+                    isPlaying = info.is_playing;
+                    playPauseBtn.textContent = isPlaying ? 'Duraklat' : 'Oynat';
+                    if (isPlaying) {
+                        requestAnimationFrame(playNextFrame);
+                    }
+                }
+            }
+        });
+
+        // Initial setup
+        videoControls.classList.toggle('active', currentSource === 'video');
+        qualitySelector.style.display = currentSource === 'video' ? 'block' : 'none';
+        networkInfo.classList.toggle('active', controlModeSelect.value === 'adaptive');
+        
+        // Initial settings
+        if (currentSource === 'camera') {
+            const resolution = resolutionSelect.value;
+            if (resolution === 'auto') {
+                socket.emit('set_control_mode', { mode: 'adaptive' });
+                controlModeSelect.value = 'adaptive';
+            } else {
+                const [width, height] = resolution.split('x').map(Number);
+                socket.emit('set_resolution', { width, height });
+            }
+        } else {
+            setTimeout(() => {
+                socket.emit('set_quality', { quality: qualitySelect.value });
+            }, 500);
+        }
+        
+        requestAnimationFrame(playNextFrame);
+    </script>
+</body>
+</html>

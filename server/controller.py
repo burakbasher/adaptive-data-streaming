@@ -13,10 +13,10 @@ from config import QUALITY_THRESHOLDS, QUALITY_STABILITY_PERIOD, DEFAULT_QUALITY
 # Configure logging
 logger = logging.getLogger('controller')
 
-# Quality level type
+# Quality level type - Updated for 3 quality levels
 QualityLevel = Literal['low', 'medium', 'high']
 
-class StreamController:
+class AdaptiveQualityController:
     """
     Controller class that determines optimal streaming quality
     based on current network conditions
@@ -36,7 +36,7 @@ class StreamController:
         # Keep track of quality history
         self.quality_history = [initial_quality]
         
-        logger.info(f"StreamController initialized with {initial_quality} quality")
+        logger.info(f"AdaptiveQualityController initialized with {initial_quality} quality")
 
     def determine_quality(self, metrics: Dict[str, float]) -> QualityLevel:
         """
@@ -71,9 +71,6 @@ class StreamController:
         current_time = time.time()
         if optimal_quality != self.current_quality and (current_time - self.last_change_time) >= self.quality_stability_period:
             logger.info(f"Quality change: {self.current_quality} -> {optimal_quality}")
-            
-            # Record previous quality
-            previous_quality = self.current_quality
             
             # Update current quality and timestamp
             self.current_quality = optimal_quality
@@ -127,6 +124,23 @@ class StreamController:
         """
         return self.quality_history[-limit:]
 
+    def set_quality(self, quality: QualityLevel) -> None:
+        """
+        Manually set quality level
+        
+        Args:
+            quality: The quality level to set
+        """
+        if quality not in QUALITY_THRESHOLDS:
+            logger.warning(f"Invalid quality: {quality}")
+            return
+            
+        if quality != self.current_quality:
+            logger.info(f"Manually setting quality: {self.current_quality} -> {quality}")
+            self.current_quality = quality
+            self.quality_history.append(quality)
+            self.last_change_time = time.time()
+
 # Example usage
 if __name__ == "__main__":
     # Configure logging
@@ -136,7 +150,7 @@ if __name__ == "__main__":
     )
     
     # Create controller
-    controller = StreamController()
+    controller = AdaptiveQualityController()
     
     # Example metrics
     metrics_samples = [
