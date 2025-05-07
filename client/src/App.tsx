@@ -348,6 +348,178 @@ function VideoPlayer({
   );
 }
 
+function measureNetworkMetrics(socket: Socket) {
+  const startTime = performance.now();
+  
+  // Ping ölçümü
+  fetch('http://localhost:3000/ping', {
+    mode: 'cors',
+    headers: {
+      'Accept': 'application/json'
+    },
+    // Önbelleği devre dışı bırak
+    cache: 'no-store'
+  })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      // Latency ölçümü (ms)
+      const latency = performance.now() - startTime;
+      
+      // Bandwidth ve paket kaybı ölçümlerini paralel yap
+      Promise.all([
+        measureActualBandwidth(),
+        measurePacketLoss()
+      ]).then(([bandwidth, packetLoss]) => {
+        // Tüm metrikleri sunucuya gönder
+        const metrics = {
+          latency,
+          packet_loss: packetLoss,
+          bandwidth
+        };
+        
+        socket.emit('network_metrics', metrics);
+        console.log(`Network metrics - Latency: ${latency.toFixed(2)}ms, Packet Loss: ${packetLoss.toFixed(2)}%, Bandwidth: ${bandwidth.toFixed(2)} Mbps`);
+        
+        // Ölçüm sonuçlarını lokal state'e de kaydet
+        // setNetworkMetrics fonksiyonu varsa kullan
+        if (window.updateNetworkMetrics) {
+          window.updateNetworkMetrics({
+            bandwidth: bandwidth,
+            latency: latency,
+            packetLoss: packetLoss
+          });
+        }
+      });
+    })
+    .catch(error => {
+      console.warn('Ping test failed, using fallback metrics:', error);
+      
+      // Bağlantı başarısız olursa varsayılan değerler kullan
+      const fallbackMetrics = {
+        latency: 200,
+        packet_loss: 5,
+        bandwidth: 1.5
+      };
+      
+      // Sunucuya varsayılan metrikleri gönder
+      socket.emit('network_metrics', fallbackMetrics);
+    });
+  
+  Promise.all([measureActualBandwidth(), measurePacketLoss()])
+    .then(([bandwidth, packetLoss]) => {
+      // Tüm metrikleri sunucuya gönder
+      const metrics = {
+        latency,
+        packet_loss: packetLoss,
+        bandwidth
+      };
+      
+      socket.emit('network_metrics', metrics);
+      
+      // Client tarafında UI'a metrik güncelleme
+      if (typeof window.updateNetworkMetrics === 'function') {
+        const clientMetrics = {
+          bandwidth: bandwidth,
+          latency: latency,
+          packetLoss: packetLoss
+        };
+        window.updateNetworkMetrics(clientMetrics);
+        console.log(`UI updated with metrics - Latency: ${latency.toFixed(2)}ms, Packet Loss: ${packetLoss.toFixed(2)}%, Bandwidth: ${bandwidth.toFixed(2)} Mbps`);
+      } else {
+        console.warn("updateNetworkMetrics function not available");
+      }
+    });
+}
+
+// Gerçek bant genişliğini ölçen fonksiyon - iyileştirilmiş
+async function measureActualBandwidth(): Promise<number> {
+  try {
+    const fileSize = 1024 * 1024; // 1MB
+    const startTime = performance.now();
+    
+    // Test dosyasını indir
+    const response = await fetch('http://localhost:3000/test-file', {
+      cache: 'no-store', // Önbelleği devre dışı bırak
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    });
+    
+    if (!response.ok) throw new Error('Test file download failed');
+    
+    // ArrayBuffer olarak dosyayı al
+    await response.arrayBuffer();
+    const endTime = performance.now();
+    
+    // Süreyi hesapla (saniye)
+    const durationInSeconds = (endTime - startTime) / 1000;
+    
+    // Çok kısa sürdüyse (önbellek veya hata durumu) geçersiz kabul et
+    if (durationInSeconds < 0.1) {
+      console.warn('Download time too short, might be cached or error');
+      return 5.0; // Varsayılan değer
+    }
+    
+    // Bant genişliğini hesapla (Mbps)
+    const bandwidth = (fileSize * 8) / 1000000 / durationInSeconds;
+    
+    // Sonucu makul bir aralıkta tut (0.5 - 100 Mbps)
+    return Math.min(Math.max(bandwidth, 0.5), 100);
+  } catch (error) {
+    console.error("Bandwidth measurement failed:", error);
+    return 3.0; // Varsayılan değer
+  }
+}
+
+// Paket kaybını ölçmeyi güçlendirelim
+async function measurePacketLoss(): Promise<number> {
+  try {
+    const pingCount = 10; // Daha fazla ping
+    let successCount = 0;
+    const pingPromises = [];
+    
+    // Tüm ping isteklerini paralel olarak yap
+    for (let i = 0; i < pingCount; i++) {
+      const promise = fetch(`http://localhost:3000/ping?seq=${i}&t=${Date.now()}`, {
+        mode: 'cors',
+        cache: 'no-store',
+        headers: { 
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      })
+      .then(res => {
+        if (res.ok) successCount++;
+        return res.ok;
+      })
+      .catch(() => false); // Hata durumunda başarısız kabul et
+      
+      pingPromises.push(promise);
+    }
+    
+    // Tüm ping isteklerinin tamamlanmasını bekle
+    await Promise.all(pingPromises);
+    
+    // Paket kaybı yüzdesini hesapla
+    const packetLoss = ((pingCount - successCount) / pingCount) * 100;
+    return packetLoss;
+  } catch (error) {
+    console.error("Packet loss measurement failed:", error);
+    return 1.0; // Varsayılan değer
+  }
+}
+
+// Global değişken ekle, diğer bileşenlerin ağ metriklerine erişebilmesi için
+window.updateNetworkMetrics = null;
+
+// 5 saniyede bir ağ metriklerini ölç
+const socket = io(SOCKET_URL);
+setInterval(() => measureNetworkMetrics(socket), 5000);
+
 function App() {
   // Change default to 'video' instead of 'camera'
   const [streamSource, setStreamSource] = useState<'camera' | 'video'>('video');
@@ -363,6 +535,7 @@ function App() {
   }, []);
 
   // Fetch network metrics and quality info
+  /*
   useEffect(() => {
     const fetchMetrics = async () => {
       try {
@@ -388,21 +561,44 @@ function App() {
     fetchMetrics();
     const interval = setInterval(fetchMetrics, 500);
     return () => clearInterval(interval);
-  }, [controlMode]); // Add controlMode as dependency to react to mode changes
-
-  // Add a separate effect to handle quality updates when control mode changes
+  }, [controlMode]);
+  */
+  
+  // Sadece kalite bilgisini çeken daha seyrek bir API çağrısı ekle
   useEffect(() => {
+    // Sadece adaptive modda kaliteyi güncelle
     if (controlMode === 'adaptive') {
-      // Fetch the current quality from server when switching to adaptive
-      fetch(`${API_URL}/api/network-metrics`)
-        .then(res => res.json())
-        .then(data => {
+      const fetchQualityInfo = async () => {
+        try {
+          const res = await fetch(`${API_URL}/api/network-metrics`);
+          const data = await res.json();
+          
           if (data.current_quality) {
             setVideoQuality(data.current_quality as QualityLevel);
           }
-        });
+        } catch (err) {
+          console.error('Quality info fetch error:', err);
+        }
+      };
+      
+      fetchQualityInfo();
+      const interval = setInterval(fetchQualityInfo, 2000); // Her 2 saniyede bir
+      return () => clearInterval(interval);
     }
   }, [controlMode]);
+  
+  // UpdateNetworkMetrics fonksiyonunu global değişkene daha erken at
+  useEffect(() => {
+    // Global değişkene atama yap
+    window.updateNetworkMetrics = (metrics: NetworkMetricsType) => {
+      console.log("UI updating metrics:", metrics);
+      setNetworkMetrics(metrics);
+    };
+    
+    return () => {
+      window.updateNetworkMetrics = null;
+    };
+  }, []);
 
   // Handle quality change
   const changeQuality = async (quality: QualityLevel) => {
@@ -443,6 +639,15 @@ function App() {
   // Start with video on initial load instead of camera
   useEffect(() => {
     handleSourceChange('video');
+  }, []);
+
+  // UpdateNetworkMetrics fonksiyonunu global değişkene at
+  useEffect(() => {
+    window.updateNetworkMetrics = setNetworkMetrics;
+    
+    return () => {
+      window.updateNetworkMetrics = null;
+    };
   }, []);
 
   return (
@@ -556,3 +761,10 @@ function App() {
 }
 
 export default App;
+
+// Typescript için global değişken tanımı (window nesnesine yeni özellik ekle)
+declare global {
+  interface Window {
+    updateNetworkMetrics: ((metrics: NetworkMetricsType) => void) | null;
+  }
+}

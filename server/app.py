@@ -1,11 +1,12 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO
 from flask_cors import CORS
 from stream_controller import StreamController
+import time
 
 app = Flask(__name__)
-# CORS ayarlarını burada yapılandırın - özellikle localhost:5173 için
-CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173"]}})
+# Tüm endpoint'ler için CORS'u etkinleştirin
+CORS(app, resources={r"/*": {"origins": ["http://localhost:5173"]}})
 socketio = SocketIO(app, cors_allowed_origins=["http://localhost:5173", "*"])
 stream_controller = StreamController()
 
@@ -55,6 +56,36 @@ def api_set_control_mode(mode):
         stream_controller.set_control_mode(mode)
         return jsonify({'success': True, 'mode': mode})
     return jsonify({'success': False, 'error': 'Invalid mode'}), 400
+
+
+@app.route('/ping', methods=['GET'])
+def ping():
+    """Simple ping endpoint for latency testing"""
+    return jsonify({
+        "status": "success",
+        "message": "pong",
+        "timestamp": time.time(),
+        "seq": request.args.get('seq', '0')
+    })
+
+
+@app.route('/test-file', methods=['GET'])
+def test_file():
+    """Generate a test file for bandwidth measurement"""
+    # Create a 1 MB test file
+    test_data = b'0' * 1024 * 1024
+    
+    response = app.response_class(
+        response=test_data,
+        status=200,
+        mimetype='application/octet-stream'
+    )
+    
+    # Add Content-Length header (for bandwidth calculation)
+    response.headers["Content-Length"] = len(test_data)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    
+    return response
 
 
 # SocketIO event handlers

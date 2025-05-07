@@ -12,6 +12,7 @@ import threading
 import random
 import statistics
 from typing import Dict, List, Optional
+from flask_socketio import SocketIO
 
 # Import configuration
 from config import QUALITY_THRESHOLDS
@@ -19,9 +20,12 @@ from config import QUALITY_THRESHOLDS
 # Configure logger
 logger = logging.getLogger('wifi_monitor')
 
+socketio = SocketIO()
+
 class NetworkMonitor:
     """
     Monitors network quality metrics including bandwidth, latency, and packet loss
+    Client metrics are used instead of server-side measurements
     """
     
     def __init__(self, test_server: str = '8.8.8.8', update_interval: float = 1.0):
@@ -29,7 +33,7 @@ class NetworkMonitor:
         Initialize the network monitor
         
         Args:
-            test_server: Server to use for ping tests
+            test_server: Server to use for ping tests (used only in fallback mode)
             update_interval: Time between measurements in seconds
         """
         self.test_server = test_server
@@ -52,111 +56,27 @@ class NetworkMonitor:
         # History size
         self._history_size = 10
         
-        logger.info(f"NetworkMonitor initialized (test server: {test_server})")
+        logger.info(f"NetworkMonitor initialized (using client metrics)")
+
+    # Eski ölçüm metotlarını kaldırıyoruz, artık bunlara ihtiyacımız yok
+    # def _measure_bandwidth(self) -> float: ...
+    # def _measure_latency_and_packet_loss(self) -> tuple: ...
     
-    def start(self) -> None:
-        """Start the network monitoring thread"""
-        if self.running:
-            logger.warning("Monitor is already running")
-            return
-            
-        self.running = True
-        self.monitor_thread = threading.Thread(target=self._monitor_loop)
-        self.monitor_thread.daemon = True
-        self.monitor_thread.start()
-        
-        logger.info("Network monitoring started")
-    
-    def stop(self) -> None:
-        """Stop the network monitoring thread"""
-        self.running = False
-        if self.monitor_thread:
-            self.monitor_thread.join(timeout=2.0)
-            
-        logger.info("Network monitoring stopped")
-    
+    # Monitor loop artık client metriklerini bekliyor, kendi ölçüm yapmıyor
     def _monitor_loop(self) -> None:
-        """Main monitoring loop"""
+        """Main monitoring loop - just keeps the thread alive for client updates"""
         while self.running:
             try:
-                # Measure network metrics
-                bandwidth = self._measure_bandwidth()
-                latency, packet_loss = self._measure_latency_and_packet_loss()
-                
-                # Update metrics
-                self._update_metrics(bandwidth, latency, packet_loss)
-                
-                # Wait for next update
+                # Just wait - client metrics will come via socket updates
                 time.sleep(self.update_interval)
                 
             except Exception as e:
                 logger.error(f"Error in monitor loop: {e}")
                 time.sleep(self.update_interval)
-    
-    def _measure_bandwidth(self) -> float:
-        """
-        Measure network bandwidth
-        
-        In a real implementation, this would use speedtest or similar tools.
-        This demo implementation simulates bandwidth measurements.
-        
-        Returns:
-            Measured bandwidth in Mbps
-        """
-        # Simulated bandwidth measurement
-        # In real implementation, use tools like speedtest-cli, iperf, or custom implementation
-        
-        # Base bandwidth (simulate home internet connection)
-        base_bandwidth = 10.0  # 10 Mbps
-        
-        # Add some random variation
-        variation = random.uniform(-2.0, 2.0)
-        
-        # Occasional congestion (10% chance)
-        if random.random() < 0.1:
-            congestion_factor = random.uniform(0.3, 0.8)
-            measured_bandwidth = max(0.5, (base_bandwidth + variation) * congestion_factor)
-        else:
-            measured_bandwidth = max(0.5, base_bandwidth + variation)
-        
-        logger.debug(f"Measured bandwidth: {measured_bandwidth:.2f} Mbps")
-        return measured_bandwidth
-    
-    def _measure_latency_and_packet_loss(self) -> tuple:
-        """
-        Measure network latency and packet loss using ping
-        
-        Returns:
-            Tuple of (latency_ms, packet_loss_percent)
-        """
-        # In a real implementation, use actual ping or custom implementation
-        # This demo implementation simulates measurements
-        
-        # Base latency
-        base_latency = 50.0  # 50 ms
-        
-        # Add random variation
-        latency_variation = random.uniform(-20.0, 30.0)
-        latency = max(5.0, base_latency + latency_variation)
-        
-        # Packet loss (normally low, occasionally higher)
-        if random.random() < 0.1:  # 10% chance of packet loss event
-            packet_loss = random.uniform(1.0, 15.0)
-        else:
-            packet_loss = random.uniform(0.0, 2.0)
-        
-        logger.debug(f"Measured latency: {latency:.2f} ms, packet loss: {packet_loss:.2f}%")
-        return latency, packet_loss
-    
+
+    # Client'tan gelen metrikleri işleyen metot (değişiklik yok)
     def _update_metrics(self, bandwidth: float, latency: float, packet_loss: float) -> None:
-        """
-        Update the latest metrics with new measurements
-        
-        Args:
-            bandwidth: Measured bandwidth in Mbps
-            latency: Measured latency in ms
-            packet_loss: Measured packet loss in %
-        """
+        """Update the latest metrics with new measurements from client"""
         # Update histories
         self._bandwidth_history.append(bandwidth)
         self._latency_history.append(latency)
@@ -181,6 +101,30 @@ class NetworkMonitor:
             'latency': round(smoothed_latency, 2),
             'packet_loss': round(smoothed_packet_loss, 2)
         }
+        
+        # Log updated metrics
+        logger.debug(f"Updated metrics - Bandwidth: {self._latest_metrics['bandwidth']} Mbps, Latency: {self._latest_metrics['latency']} ms, Packet Loss: {self._latest_metrics['packet_loss']}%")
+    
+    def start(self) -> None:
+        """Start the network monitoring thread"""
+        if self.running:
+            logger.warning("Monitor is already running")
+            return
+            
+        self.running = True
+        self.monitor_thread = threading.Thread(target=self._monitor_loop)
+        self.monitor_thread.daemon = True
+        self.monitor_thread.start()
+        
+        logger.info("Network monitoring started")
+    
+    def stop(self) -> None:
+        """Stop the network monitoring thread"""
+        self.running = False
+        if self.monitor_thread:
+            self.monitor_thread.join(timeout=2.0)
+            
+        logger.info("Network monitoring stopped")
     
     def get_metrics(self) -> Dict[str, float]:
         """
@@ -274,6 +218,32 @@ def ping_test(host: str = '8.8.8.8', count: int = 5) -> tuple:
     except Exception as e:
         logger.error(f"Ping test failed: {e}")
         return 999.0, 100.0  # High values indicate failure
+
+@socketio.on('network_metrics')
+def handle_network_metrics(data):
+    """
+    Handle network metrics sent by the client.
+    
+    Args:
+        data: Dictionary containing 'latency', 'packet_loss', and 'bandwidth'.
+    """
+    latency = data.get('latency', 999.0)
+    packet_loss = data.get('packet_loss', 100.0)
+    bandwidth = data.get('bandwidth', 0.0)
+    
+    logger.info(f"Received metrics from client - Latency: {latency:.2f} ms, Packet Loss: {packet_loss:.2f}%, Bandwidth: {bandwidth:.2f} Mbps")
+    
+    # Update metrics in the NetworkMonitor
+    # Create an instance of NetworkMonitor if not already available
+    global monitor
+    if 'monitor' not in globals():
+        monitor = NetworkMonitor()
+        monitor.start()  # Başlat ki metrikler güncellenebilsin
+        
+    monitor._update_metrics(bandwidth, latency, packet_loss)
+    
+    # Send an acknowledgement back to client
+    return {"status": "success", "received": data}
 
 # Example usage
 if __name__ == "__main__":
