@@ -33,21 +33,21 @@ QUALITY_THRESHOLDS = {
         'bitrate': 500,  # Kbps
         'min_bandwidth': 0,  # Mbps
         'max_latency': 500,  # ms
-        'max_packet_loss': 10,  # %
+        'max_packet_loss': 15,  # %
     },
     'medium': {
         'resolution': (640, 360),
         'bitrate': 1000,  # Kbps
         'min_bandwidth': 2,  # Mbps
         'max_latency': 200,  # ms
-        'max_packet_loss': 5,  # %
+        'max_packet_loss': 10,  # %
     },
     'high': {
         'resolution': (1280, 720),
         'bitrate': 2500,  # Kbps
         'min_bandwidth': 4,  # Mbps
         'max_latency': 100,  # ms
-        'max_packet_loss': 2,  # %
+        'max_packet_loss': 5,  # %
     }
 }
 

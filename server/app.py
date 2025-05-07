@@ -1,27 +1,63 @@
 from flask import Flask, render_template, jsonify
 from flask_socketio import SocketIO
+from flask_cors import CORS
 from stream_controller import StreamController
-from wifi_monitor import NetworkMonitor  # Import your existing NetworkMonitor
 
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
+# CORS ayarlarını burada yapılandırın - özellikle localhost:5173 için
+CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173"]}})
+socketio = SocketIO(app, cors_allowed_origins=["http://localhost:5173", "*"])
 stream_controller = StreamController()
-network_monitor = NetworkMonitor()  # Create instance of your existing monitor
 
-# Initialize the monitor directly
-network_monitor.start()  # Start the network monitor at app initialization
 
-@app.route('/api/network-metrics')
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+# Network metrikleri için REST API endpoint'i ekleyin
+@app.route('/api/network-metrics', methods=['GET'])
 def get_network_metrics():
-    metrics = network_monitor.get_metrics()
-    metrics['current_quality'] = network_monitor.get_suggested_quality()
+    # Always get network metrics from the monitor
+    metrics = stream_controller.network_monitor.get_metrics()
+    
+    # Add current quality info
+    if hasattr(stream_controller, 'video_stream') and stream_controller.current_source == 'video':
+        metrics['current_quality'] = stream_controller.video_stream.quality
+    elif hasattr(stream_controller, 'camera_stream') and stream_controller.camera_stream:
+        metrics['current_quality'] = stream_controller.camera_stream.quality
+    else:
+        metrics['current_quality'] = 'medium'
+    
     return jsonify(metrics)
 
-@app.route('/api/set-quality/<quality>', methods=['POST'])
-def set_quality(quality):
-    stream_controller.set_quality(quality)
-    return jsonify({"status": "success", "quality": quality})
 
+# Diğer API endpoint'leri
+@app.route('/api/set-quality/<quality>', methods=['POST'])
+def api_set_quality(quality):
+    if quality in ['low', 'medium', 'high']:
+        stream_controller.handle_set_quality({'quality': quality})
+        return jsonify({'success': True, 'quality': quality})
+    return jsonify({'success': False, 'error': 'Invalid quality'}), 400
+
+
+@app.route('/api/set-source/<source>', methods=['POST'])
+def api_set_source(source):
+    if source in ['camera', 'video']:
+        stream_controller.set_source(source)
+        return jsonify({'success': True, 'source': source})
+    return jsonify({'success': False, 'error': 'Invalid source'}), 400
+
+
+@app.route('/api/set-control-mode/<mode>', methods=['POST'])
+def api_set_control_mode(mode):
+    if mode in ['manual', 'adaptive']:
+        stream_controller.set_control_mode(mode)
+        return jsonify({'success': True, 'mode': mode})
+    return jsonify({'success': False, 'error': 'Invalid mode'}), 400
+
+
+# SocketIO event handlers
 @socketio.on('connect')
 def on_connect():
     print("[SocketIO] Client connected")

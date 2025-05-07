@@ -8,7 +8,6 @@ import threading
 
 class StreamController:
     def __init__(self):
-        # Change default source to 'video' instead of 'camera'
         self.current_source = 'video'  # Default to video instead of camera
         
         # Initialize video stream only (not camera)
@@ -25,7 +24,7 @@ class StreamController:
         
         self.adaptive_controller = AdaptiveQualityController()
         self.adaptive_quality_thread = None
-
+        
     def _adaptive_quality_loop(self):
         """Background thread for adaptive quality control"""
         last_applied_quality = None
@@ -124,7 +123,6 @@ class StreamController:
     def set_control_mode(self, mode):
         """Change between manual and adaptive quality control"""
         if mode not in ['manual', 'adaptive']:
-            print(f"[STREAM] ⚠ Invalid control mode: {mode}")
             return
             
         if self.control_mode == mode:
@@ -175,7 +173,7 @@ class StreamController:
                 socketio.emit('video_info', self.get_stream_info())
 
             socketio.sleep(0.01)
-
+            
     def __del__(self):
         """Destructor to cleanup resources"""
         self.running = False
