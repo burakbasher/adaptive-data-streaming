@@ -116,16 +116,18 @@ class StreamController:
         
         # Etkin stream'in kalitesini güncelle
         if self.current_source == 'video':
-            self.video_stream.handle_set_quality(quality)
+            # Alt sınıfa sözlük olarak gönder
+            self.video_stream.handle_set_quality({'quality': quality})
         elif self.current_source == 'camera' and self.camera_stream:
-            self.camera_stream.handle_set_quality(quality)
+            # Alt sınıfa sözlük olarak gönder
+            self.camera_stream.handle_set_quality({'quality': quality})
             
-        return {'success': True, 'quality': quality}
-                
         # Update adaptive controller if in manual mode
         if self.control_mode == 'manual':
             self.adaptive_controller.set_quality(quality)
             print(f"[STREAM] Manually set quality to {quality}")
+        
+        return {'success': True, 'quality': quality}
 
     def handle_play_pause(self, data):
         if self.current_source == 'video':

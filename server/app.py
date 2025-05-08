@@ -48,8 +48,13 @@ def get_network_metrics():
 @app.route('/api/set-quality/<quality>', methods=['POST'])
 def api_set_quality(quality):
     if quality in ['low', 'medium', 'high']:
-        stream_controller.handle_set_quality({'quality': quality})
-        return jsonify({'success': True, 'quality': quality})
+        try:
+            # Fix: Pass quality as a dictionary with 'quality' key
+            stream_controller.handle_set_quality({'quality': quality})
+            return jsonify({'success': True, 'quality': quality})
+        except Exception as e:
+            app.logger.error(f"Error setting quality: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
     return jsonify({'success': False, 'error': 'Invalid quality'}), 400
 
 

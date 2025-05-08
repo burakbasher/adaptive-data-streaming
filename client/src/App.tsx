@@ -413,11 +413,6 @@ function measureNetworkMetrics(socket: Socket) {
       socket.emit('network_metrics', fallbackMetrics);
     });
   
-  // BU BLOĞU TAMAMEN SİLİN
-  // Promise.all([measureActualBandwidth(), measurePacketLoss()])
-  //  .then(([bandwidth, packetLoss]) => {
-  //    // Bu kod bloğu gereksiz tekrarlama yapıyor ve hata oluşturuyor
-  //  });
 }
 
 // Gerçek bant genişliğini ölçen fonksiyon - iyileştirilmiş
@@ -594,10 +589,19 @@ function App() {
   // Handle quality change
   const changeQuality = async (quality: QualityLevel) => {
     try {
-      await fetch(`${API_URL}/api/set-quality/${quality}`, { method: 'POST' });
+      const response = await fetch(`${API_URL}/api/set-quality/${quality}`, { 
+        method: 'POST' 
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Quality change server error:', errorData);
+        return;
+      }
+      
       setVideoQuality(quality);
     } catch (err) {
-      console.error('Quality change error:', err);
+      console.error('Quality change network error:', err);
     }
   };
 
