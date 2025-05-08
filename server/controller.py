@@ -53,35 +53,53 @@ class AdaptiveQualityController:
         packet_loss = metrics.get('packet_loss', 15)
         
         # Log incoming metrics
-        logger.debug(f"Current metrics - Bandwidth: {bandwidth} Mbps, Latency: {latency} ms, Packet Loss: {packet_loss}%")
+        logger.info(f"Current metrics - Bandwidth: {bandwidth} Mbps, Latency: {latency} ms, Packet Loss: {packet_loss}%")
         
         # Determine optimal quality based on metrics
-        if (bandwidth >= QUALITY_THRESHOLDS['high']['min_bandwidth'] and 
+        high_threshold_met = (
+            bandwidth >= QUALITY_THRESHOLDS['high']['min_bandwidth'] and 
             latency <= QUALITY_THRESHOLDS['high']['max_latency'] and 
-            packet_loss <= QUALITY_THRESHOLDS['high']['max_packet_loss']):
+            packet_loss <= QUALITY_THRESHOLDS['high']['max_packet_loss']
+        )
+        
+        medium_threshold_met = (
+            bandwidth >= QUALITY_THRESHOLDS['medium']['min_bandwidth'] and 
+            latency <= QUALITY_THRESHOLDS['medium']['max_latency'] and 
+            packet_loss <= QUALITY_THRESHOLDS['medium']['max_packet_loss']
+        )
+        
+        if high_threshold_met:
             optimal_quality = 'high'
-        elif (bandwidth >= QUALITY_THRESHOLDS['medium']['min_bandwidth'] and 
-              latency <= QUALITY_THRESHOLDS['medium']['max_latency'] and 
-              packet_loss <= QUALITY_THRESHOLDS['medium']['max_packet_loss']):
+            logger.info(f"High quality thresholds met: bandwidth >= {QUALITY_THRESHOLDS['high']['min_bandwidth']}, " 
+                        f"latency <= {QUALITY_THRESHOLDS['high']['max_latency']}, "
+                        f"packet_loss <= {QUALITY_THRESHOLDS['high']['max_packet_loss']}")
+        elif medium_threshold_met:
             optimal_quality = 'medium'
+            logger.info(f"Medium quality thresholds met: bandwidth >= {QUALITY_THRESHOLDS['medium']['min_bandwidth']}, " 
+                        f"latency <= {QUALITY_THRESHOLDS['medium']['max_latency']}, "
+                        f"packet_loss <= {QUALITY_THRESHOLDS['medium']['max_packet_loss']}")
         else:
             optimal_quality = 'low'
+            logger.info("Using low quality: medium thresholds not met")
         
         # Check if we should change quality (avoid rapid fluctuations)
         current_time = time.time()
-        if optimal_quality != self.current_quality and (current_time - self.last_change_time) >= self.quality_stability_period:
-            logger.info(f"Quality change: {self.current_quality} -> {optimal_quality}")
-            
-            # Update current quality and timestamp
-            self.current_quality = optimal_quality
-            self.last_change_time = current_time
-            
-            # Add to quality history
-            self.quality_history.append(optimal_quality)
-            
-            # Trim history if needed
-            if len(self.quality_history) > 100:
-                self.quality_history = self.quality_history[-100:]
+        if optimal_quality != self.current_quality:
+            if (current_time - self.last_change_time) >= self.quality_stability_period:
+                logger.info(f"Quality change: {self.current_quality} -> {optimal_quality}")
+                
+                # Update current quality and timestamp
+                self.current_quality = optimal_quality
+                self.last_change_time = current_time
+                
+                # Add to quality history
+                self.quality_history.append(optimal_quality)
+            else:
+                logger.info(f"Quality change suppressed due to stability period: {current_time - self.last_change_time:.2f}s < {self.quality_stability_period}s")
+        
+        # Trim history if needed
+        if len(self.quality_history) > 100:
+            self.quality_history = self.quality_history[-100:]
         
         return self.current_quality
     

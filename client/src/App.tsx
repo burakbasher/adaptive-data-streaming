@@ -168,6 +168,12 @@ function VideoPlayer({
     const rect = timeline.getBoundingClientRect();
     const position = (e.clientX - rect.left) / rect.width;
     
+  // Clear buffer function
+  const clearBuffer = useCallback(() => {
+    frameBufferRef.current = [];
+    setBufferSize(0);
+    console.log("Buffer cleared!");
+  }, []);
     socketRef.current?.emit('seek', { position });
   }, []);
 
@@ -384,7 +390,6 @@ function measureNetworkMetrics(socket: Socket) {
         console.log(`Network metrics - Latency: ${latency.toFixed(2)}ms, Packet Loss: ${packetLoss.toFixed(2)}%, Bandwidth: ${bandwidth.toFixed(2)} Mbps`);
         
         // Ölçüm sonuçlarını lokal state'e de kaydet
-        // setNetworkMetrics fonksiyonu varsa kullan
         if (window.updateNetworkMetrics) {
           window.updateNetworkMetrics({
             bandwidth: bandwidth,
@@ -408,36 +413,18 @@ function measureNetworkMetrics(socket: Socket) {
       socket.emit('network_metrics', fallbackMetrics);
     });
   
-  Promise.all([measureActualBandwidth(), measurePacketLoss()])
-    .then(([bandwidth, packetLoss]) => {
-      // Tüm metrikleri sunucuya gönder
-      const metrics = {
-        latency,
-        packet_loss: packetLoss,
-        bandwidth
-      };
-      
-      socket.emit('network_metrics', metrics);
-      
-      // Client tarafında UI'a metrik güncelleme
-      if (typeof window.updateNetworkMetrics === 'function') {
-        const clientMetrics = {
-          bandwidth: bandwidth,
-          latency: latency,
-          packetLoss: packetLoss
-        };
-        window.updateNetworkMetrics(clientMetrics);
-        console.log(`UI updated with metrics - Latency: ${latency.toFixed(2)}ms, Packet Loss: ${packetLoss.toFixed(2)}%, Bandwidth: ${bandwidth.toFixed(2)} Mbps`);
-      } else {
-        console.warn("updateNetworkMetrics function not available");
-      }
-    });
+  // BU BLOĞU TAMAMEN SİLİN
+  // Promise.all([measureActualBandwidth(), measurePacketLoss()])
+  //  .then(([bandwidth, packetLoss]) => {
+  //    // Bu kod bloğu gereksiz tekrarlama yapıyor ve hata oluşturuyor
+  //  });
 }
 
 // Gerçek bant genişliğini ölçen fonksiyon - iyileştirilmiş
 async function measureActualBandwidth(): Promise<number> {
   try {
-    const fileSize = 1024 * 1024; // 1MB
+    // Dosya boyutunu 10 MB'a çıkar
+    const fileSize = 10 * 1024 * 1024; // 10MB
     const startTime = performance.now();
     
     // Test dosyasını indir
@@ -458,8 +445,12 @@ async function measureActualBandwidth(): Promise<number> {
     // Süreyi hesapla (saniye)
     const durationInSeconds = (endTime - startTime) / 1000;
     
-    // Çok kısa sürdüyse (önbellek veya hata durumu) geçersiz kabul et
-    if (durationInSeconds < 0.1) {
+    // Yerel ortam için farklı davranış sergile
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1';
+
+    // Çok kısa sürdüyse ve localhost değilse kontrol et
+    if (durationInSeconds < 0.1 && !isLocalhost) {
       console.warn('Download time too short, might be cached or error');
       return 5.0; // Varsayılan değer
     }
@@ -467,8 +458,8 @@ async function measureActualBandwidth(): Promise<number> {
     // Bant genişliğini hesapla (Mbps)
     const bandwidth = (fileSize * 8) / 1000000 / durationInSeconds;
     
-    // Sonucu makul bir aralıkta tut (0.5 - 100 Mbps)
-    return Math.min(Math.max(bandwidth, 0.5), 100);
+    // Sonucu makul bir aralıkta tut (0.5 - 10000 Mbps)
+    return Math.min(Math.max(bandwidth, 0.5), 10000);
   } catch (error) {
     console.error("Bandwidth measurement failed:", error);
     return 3.0; // Varsayılan değer

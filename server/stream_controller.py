@@ -2,7 +2,7 @@ from flask_socketio import SocketIO
 from camera_stream import CameraStream
 from video_stream import VideoStream
 from controller import AdaptiveQualityController
-from wifi_monitor import NetworkMonitor
+from wifi_monitor import NetworkMonitor, get_network_monitor
 import time
 import threading
 
@@ -18,13 +18,22 @@ class StreamController:
         self.running = True
         self.control_mode = 'manual'
         
-        # Always initialize and start network monitor
-        self.network_monitor = NetworkMonitor()
-        self.network_monitor.start()  # Always start monitoring
+        # Use shared network monitor instance instead of creating a new one
+        self.network_monitor = get_network_monitor()
         
         self.adaptive_controller = AdaptiveQualityController()
         self.adaptive_quality_thread = None
+        self.start_adaptive_control()
         
+        self.current_quality = 'medium'  # Varsayılan kalite
+        
+    def start_adaptive_control(self):
+        """Start the adaptive quality control thread"""
+        if self.adaptive_quality_thread is None:
+            self.adaptive_quality_thread = threading.Thread(target=self._adaptive_quality_loop)
+            self.adaptive_quality_thread.daemon = True
+            self.adaptive_quality_thread.start()
+    
     def _adaptive_quality_loop(self):
         """Background thread for adaptive quality control"""
         last_applied_quality = None
@@ -96,17 +105,27 @@ class StreamController:
             self.camera_stream.handle_set_resolution(data)
 
     def handle_set_quality(self, data):
-        quality = data.get('quality')
-        if quality in ['low', 'medium', 'high']:
-            if self.current_source == 'video':
-                self.video_stream.handle_set_quality(data)
-            elif self.current_source == 'camera':
-                self.camera_stream.handle_set_quality(data)
+        """
+        Handle quality change request
+        
+        Args:
+            data: Dictionary containing quality setting
+        """
+        quality = data.get('quality', 'medium')
+        self.current_quality = quality  # Mevcut kaliteyi güncelle
+        
+        # Etkin stream'in kalitesini güncelle
+        if self.current_source == 'video':
+            self.video_stream.handle_set_quality(quality)
+        elif self.current_source == 'camera' and self.camera_stream:
+            self.camera_stream.handle_set_quality(quality)
+            
+        return {'success': True, 'quality': quality}
                 
-            # Update adaptive controller if in manual mode
-            if self.control_mode == 'manual':
-                self.adaptive_controller.set_quality(quality)
-                print(f"[STREAM] Manually set quality to {quality}")
+        # Update adaptive controller if in manual mode
+        if self.control_mode == 'manual':
+            self.adaptive_controller.set_quality(quality)
+            print(f"[STREAM] Manually set quality to {quality}")
 
     def handle_play_pause(self, data):
         if self.current_source == 'video':
@@ -179,4 +198,26 @@ class StreamController:
         self.running = False
         if hasattr(self, 'network_monitor'):
             self.network_monitor.stop()
+
+    def get_current_quality(self) -> str:
+        """
+        Get the current video quality setting
+        
+        Returns:
+            Current quality level ('low', 'medium', or 'high')
+        """
+        # Adaptive mod aktifse, adaptive controller'ın kalitesini döndür
+        if self.control_mode == 'adaptive' and hasattr(self, 'adaptive_controller'):
+            return self.adaptive_controller.current_quality
+        
+        # Eğer video stream aktifse ve handle_set_quality metodu çağrıldıysa
+        if self.current_source == 'video' and hasattr(self.video_stream, 'current_quality'):
+            return self.video_stream.current_quality
+        
+        # Eğer kamera stream aktifse ve handle_set_quality metodu çağrıldıysa
+        if self.current_source == 'camera' and self.camera_stream and hasattr(self.camera_stream, 'current_quality'):
+            return self.camera_stream.current_quality
+            
+        # Varsayılan kaliteyi döndür
+        return self.current_quality
 

@@ -33,19 +33,19 @@ QUALITY_THRESHOLDS = {
         'bitrate': 500,  # Kbps
         'min_bandwidth': 0,  # Mbps
         'max_latency': 500,  # ms
-        'max_packet_loss': 10,  # %
+        'max_packet_loss': 15,  # %
     },
     'medium': {
         'resolution': (640, 360),
         'bitrate': 1000,  # Kbps
-        'min_bandwidth': 2,  # Mbps
+        'min_bandwidth': 3,  # Mbps (düşürüldü: 5 -> 3)
         'max_latency': 200,  # ms
         'max_packet_loss': 5,  # %
     },
     'high': {
         'resolution': (1280, 720),
         'bitrate': 2500,  # Kbps
-        'min_bandwidth': 4,  # Mbps
+        'min_bandwidth': 8,  # Mbps (düşürüldü: 10 -> 8)
         'max_latency': 100,  # ms
         'max_packet_loss': 2,  # %
     }
@@ -53,7 +53,8 @@ QUALITY_THRESHOLDS = {
 
 # Stream settings
 FPS = 30  # Frames per second
-QUALITY_STABILITY_PERIOD = 5  # Seconds to wait before changing quality
+# Kararlılık süresini 10 saniyeden 2 saniyeye indirin
+QUALITY_STABILITY_PERIOD = 2.0  # seconds (changed from 10.0)
 DEFAULT_QUALITY = 'medium'  # Default quality level
 
 # Configure logging

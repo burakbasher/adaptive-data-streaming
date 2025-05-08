@@ -12,15 +12,12 @@ import threading
 import random
 import statistics
 from typing import Dict, List, Optional
-from flask_socketio import SocketIO
 
 # Import configuration
 from config import QUALITY_THRESHOLDS
 
 # Configure logger
 logger = logging.getLogger('wifi_monitor')
-
-socketio = SocketIO()
 
 class NetworkMonitor:
     """
@@ -157,6 +154,17 @@ class NetworkMonitor:
         else:
             return 'low'
 
+# Singleton pattern uygulanması
+_monitor_instance = None
+
+def get_network_monitor():
+    """Get or create the singleton NetworkMonitor instance"""
+    global _monitor_instance
+    if _monitor_instance is None:
+        _monitor_instance = NetworkMonitor()
+        _monitor_instance.start()
+    return _monitor_instance
+
 # Utility function to run a real ping test
 def ping_test(host: str = '8.8.8.8', count: int = 5) -> tuple:
     """
@@ -218,32 +226,6 @@ def ping_test(host: str = '8.8.8.8', count: int = 5) -> tuple:
     except Exception as e:
         logger.error(f"Ping test failed: {e}")
         return 999.0, 100.0  # High values indicate failure
-
-@socketio.on('network_metrics')
-def handle_network_metrics(data):
-    """
-    Handle network metrics sent by the client.
-    
-    Args:
-        data: Dictionary containing 'latency', 'packet_loss', and 'bandwidth'.
-    """
-    latency = data.get('latency', 999.0)
-    packet_loss = data.get('packet_loss', 100.0)
-    bandwidth = data.get('bandwidth', 0.0)
-    
-    logger.info(f"Received metrics from client - Latency: {latency:.2f} ms, Packet Loss: {packet_loss:.2f}%, Bandwidth: {bandwidth:.2f} Mbps")
-    
-    # Update metrics in the NetworkMonitor
-    # Create an instance of NetworkMonitor if not already available
-    global monitor
-    if 'monitor' not in globals():
-        monitor = NetworkMonitor()
-        monitor.start()  # Başlat ki metrikler güncellenebilsin
-        
-    monitor._update_metrics(bandwidth, latency, packet_loss)
-    
-    # Send an acknowledgement back to client
-    return {"status": "success", "received": data}
 
 # Example usage
 if __name__ == "__main__":

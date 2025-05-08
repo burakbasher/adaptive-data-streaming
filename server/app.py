@@ -1,15 +1,26 @@
 from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO
 from flask_cors import CORS
-from stream_controller import StreamController
 import time
+import logging
 
 app = Flask(__name__)
-# Tüm endpoint'ler için CORS'u etkinleştirin
 CORS(app, resources={r"/*": {"origins": ["http://localhost:5173"]}})
 socketio = SocketIO(app, cors_allowed_origins=["http://localhost:5173", "*"])
+
+# NetworkMonitor'u import et
+from wifi_monitor import get_network_monitor
+
+# Socket handler'ları kaydet
+from socket_handlers import register_handlers
+register_handlers(socketio)
+
+# Sonra diğer modülleri import et
+from stream_controller import StreamController
 stream_controller = StreamController()
 
+# Network monitoring imports
+network_monitor = get_network_monitor()
 
 @app.route('/')
 def index():
@@ -19,18 +30,18 @@ def index():
 # Network metrikleri için REST API endpoint'i ekleyin
 @app.route('/api/network-metrics', methods=['GET'])
 def get_network_metrics():
-    # Always get network metrics from the monitor
-    metrics = stream_controller.network_monitor.get_metrics()
+    """API endpoint to get current network metrics"""
+    metrics = network_monitor.get_metrics()
+    quality = stream_controller.get_current_quality()
     
-    # Add current quality info
-    if hasattr(stream_controller, 'video_stream') and stream_controller.current_source == 'video':
-        metrics['current_quality'] = stream_controller.video_stream.quality
-    elif hasattr(stream_controller, 'camera_stream') and stream_controller.camera_stream:
-        metrics['current_quality'] = stream_controller.camera_stream.quality
-    else:
-        metrics['current_quality'] = 'medium'
+    response = {
+        "bandwidth": metrics['bandwidth'],
+        "latency": metrics['latency'],
+        "packet_loss": metrics['packet_loss'],
+        "current_quality": quality
+    }
     
-    return jsonify(metrics)
+    return jsonify(response)
 
 
 # Diğer API endpoint'leri
@@ -72,8 +83,8 @@ def ping():
 @app.route('/test-file', methods=['GET'])
 def test_file():
     """Generate a test file for bandwidth measurement"""
-    # Create a 1 MB test file
-    test_data = b'0' * 1024 * 1024
+    # Create a 10 MB test file for more accurate measurement
+    test_data = b'0' * 10 * 1024 * 1024
     
     response = app.response_class(
         response=test_data,
@@ -81,7 +92,6 @@ def test_file():
         mimetype='application/octet-stream'
     )
     
-    # Add Content-Length header (for bandwidth calculation)
     response.headers["Content-Length"] = len(test_data)
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     
