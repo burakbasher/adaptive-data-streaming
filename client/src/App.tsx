@@ -89,8 +89,8 @@ function VideoPlayer({
     const containerWidth = container.clientWidth;
     const containerHeight = container.clientHeight;
 
-    // Calculate aspect ratio based on quality
-    let aspectRatio = 16/9; // Default to 16:9
+    
+    let aspectRatio = 16/9; 
 
     // Calculate dimensions to fit container while maintaining aspect ratio
     let width, height;
@@ -276,7 +276,7 @@ function VideoPlayer({
           }}
         />
         
-        {/* Simple buffer visualization */}
+        {/*  buffer  */}
         <Box sx={{ 
           position: 'absolute',
           bottom: 0,
@@ -363,7 +363,6 @@ function measureNetworkMetrics(socket: Socket) {
     headers: {
       'Accept': 'application/json'
     },
-    // Önbelleği devre dışı bırak
     cache: 'no-store'
   })
     .then(response => {
@@ -371,15 +370,13 @@ function measureNetworkMetrics(socket: Socket) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
       
-      // Latency ölçümü (ms)
+      // Latency  (ms)
       const latency = performance.now() - startTime;
       
-      // Bandwidth ve paket kaybı ölçümlerini paralel yap
       Promise.all([
         measureActualBandwidth(),
         measurePacketLoss()
       ]).then(([bandwidth, packetLoss]) => {
-        // Tüm metrikleri sunucuya gönder
         const metrics = {
           latency,
           packet_loss: packetLoss,
@@ -389,7 +386,6 @@ function measureNetworkMetrics(socket: Socket) {
         socket.emit('network_metrics', metrics);
         console.log(`Network metrics - Latency: ${latency.toFixed(2)}ms, Packet Loss: ${packetLoss.toFixed(2)}%, Bandwidth: ${bandwidth.toFixed(2)} Mbps`);
         
-        // Ölçüm sonuçlarını lokal state'e de kaydet
         if (window.updateNetworkMetrics) {
           window.updateNetworkMetrics({
             bandwidth: bandwidth,
@@ -402,29 +398,24 @@ function measureNetworkMetrics(socket: Socket) {
     .catch(error => {
       console.warn('Ping test failed, using fallback metrics:', error);
       
-      // Bağlantı başarısız olursa varsayılan değerler kullan
       const fallbackMetrics = {
         latency: 200,
         packet_loss: 5,
         bandwidth: 1.5
       };
       
-      // Sunucuya varsayılan metrikleri gönder
       socket.emit('network_metrics', fallbackMetrics);
     });
   
 }
 
-// Gerçek bant genişliğini ölçen fonksiyon - iyileştirilmiş
 async function measureActualBandwidth(): Promise<number> {
   try {
-    // Dosya boyutunu 10 MB'a çıkar
     const fileSize = 10 * 1024 * 1024; // 10MB
     const startTime = performance.now();
     
-    // Test dosyasını indir
     const response = await fetch('http://localhost:3000/test-file', {
-      cache: 'no-store', // Önbelleği devre dışı bırak
+      cache: 'no-store', 
       headers: {
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
@@ -433,42 +424,34 @@ async function measureActualBandwidth(): Promise<number> {
     
     if (!response.ok) throw new Error('Test file download failed');
     
-    // ArrayBuffer olarak dosyayı al
     await response.arrayBuffer();
     const endTime = performance.now();
     
-    // Süreyi hesapla (saniye)
     const durationInSeconds = (endTime - startTime) / 1000;
     
-    // Yerel ortam için farklı davranış sergile
     const isLocalhost = window.location.hostname === 'localhost' || 
                         window.location.hostname === '127.0.0.1';
 
-    // Çok kısa sürdüyse ve localhost değilse kontrol et
     if (durationInSeconds < 0.1 && !isLocalhost) {
       console.warn('Download time too short, might be cached or error');
-      return 5.0; // Varsayılan değer
+      return 5.0; 
     }
     
-    // Bant genişliğini hesapla (Mbps)
     const bandwidth = (fileSize * 8) / 1000000 / durationInSeconds;
     
-    // Sonucu makul bir aralıkta tut (0.5 - 10000 Mbps)
     return Math.min(Math.max(bandwidth, 0.5), 10000);
   } catch (error) {
     console.error("Bandwidth measurement failed:", error);
-    return 3.0; // Varsayılan değer
+    return 3.0; 
   }
 }
 
-// Paket kaybını ölçmeyi güçlendirelim
 async function measurePacketLoss(): Promise<number> {
   try {
-    const pingCount = 10; // Daha fazla ping
+    const pingCount = 10; 
     let successCount = 0;
     const pingPromises = [];
     
-    // Tüm ping isteklerini paralel olarak yap
     for (let i = 0; i < pingCount; i++) {
       const promise = fetch(`http://localhost:3000/ping?seq=${i}&t=${Date.now()}`, {
         mode: 'cors',
@@ -482,77 +465,40 @@ async function measurePacketLoss(): Promise<number> {
         if (res.ok) successCount++;
         return res.ok;
       })
-      .catch(() => false); // Hata durumunda başarısız kabul et
+      .catch(() => false); 
       
       pingPromises.push(promise);
     }
     
-    // Tüm ping isteklerinin tamamlanmasını bekle
     await Promise.all(pingPromises);
     
-    // Paket kaybı yüzdesini hesapla
     const packetLoss = ((pingCount - successCount) / pingCount) * 100;
     return packetLoss;
   } catch (error) {
     console.error("Packet loss measurement failed:", error);
-    return 1.0; // Varsayılan değer
+    return 1.0; 
   }
 }
 
-// Global değişken ekle, diğer bileşenlerin ağ metriklerine erişebilmesi için
 window.updateNetworkMetrics = null;
 
-// 5 saniyede bir ağ metriklerini ölç
 const socket = io(SOCKET_URL);
 setInterval(() => measureNetworkMetrics(socket), 5000);
 
 function App() {
-  // Change default to 'video' instead of 'camera'
   const [streamSource, setStreamSource] = useState<'camera' | 'video'>('video');
   const [videoQuality, setVideoQuality] = useState<QualityLevel>('medium');
   const [networkMetrics, setNetworkMetrics] = useState<NetworkMetricsType>({ bandwidth: 0, latency: 0, packetLoss: 0 });
   const [controlMode, setControlMode] = useState<'manual' | 'adaptive'>('manual');
-  // Ref for video player clearBuffer function
   const clearBufferRef = useRef<(() => void) | null>(null);
 
-  // Set the clearBuffer function from the VideoPlayer component
   const handleClearBuffer = useCallback((clearBufferFn: () => void) => {
     clearBufferRef.current = clearBufferFn;
   }, []);
 
-  // Fetch network metrics and quality info
-  /*
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        const res = await fetch(`${API_URL}/api/network-metrics`);
-        const data = await res.json();
-        
-        // Always update network metrics, regardless of mode
-        setNetworkMetrics({
-          bandwidth: data.bandwidth || 0,
-          latency: data.latency || 0,
-          packetLoss: data.packet_loss || 0,
-        });
-        
-        // Only update quality in adaptive mode
-        if (data.current_quality && controlMode === 'adaptive') {
-          setVideoQuality(data.current_quality as QualityLevel);
-        }
-      } catch (err) {
-        console.error('Metric fetch error:', err);
-      }
-    };
-    
-    fetchMetrics();
-    const interval = setInterval(fetchMetrics, 500);
-    return () => clearInterval(interval);
-  }, [controlMode]);
-  */
   
-  // Sadece kalite bilgisini çeken daha seyrek bir API çağrısı ekle
+  
   useEffect(() => {
-    // Sadece adaptive modda kaliteyi güncelle
     if (controlMode === 'adaptive') {
       const fetchQualityInfo = async () => {
         try {
@@ -573,9 +519,7 @@ function App() {
     }
   }, [controlMode]);
   
-  // UpdateNetworkMetrics fonksiyonunu global değişkene daha erken at
   useEffect(() => {
-    // Global değişkene atama yap
     window.updateNetworkMetrics = (metrics: NetworkMetricsType) => {
       console.log("UI updating metrics:", metrics);
       setNetworkMetrics(metrics);
@@ -586,7 +530,6 @@ function App() {
     };
   }, []);
 
-  // Handle quality change
   const changeQuality = async (quality: QualityLevel) => {
     try {
       const response = await fetch(`${API_URL}/api/set-quality/${quality}`, { 
@@ -605,10 +548,8 @@ function App() {
     }
   };
 
-  // Handle source change with buffer clearing
   const handleSourceChange = async (source: 'camera' | 'video') => {
     try {
-      // Clear the buffer first when switching sources
       if (clearBufferRef.current) {
         console.log(`Clearing buffer before switching to ${source} mode`);
         clearBufferRef.current();
@@ -621,7 +562,6 @@ function App() {
     }
   };
 
-  // Handle control mode change
   const handleControlModeChange = async (mode: 'manual' | 'adaptive') => {
     try {
       setControlMode(mode);
@@ -631,12 +571,10 @@ function App() {
     }
   };
 
-  // Start with video on initial load instead of camera
   useEffect(() => {
     handleSourceChange('video');
   }, []);
 
-  // UpdateNetworkMetrics fonksiyonunu global değişkene at
   useEffect(() => {
     window.updateNetworkMetrics = setNetworkMetrics;
     
@@ -699,7 +637,7 @@ function App() {
           <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, flex: 1, minHeight: 0 }}>
             <VideoPlayer videoQuality={videoQuality} onQualityChange={controlMode === 'manual' ? changeQuality : undefined} onClearBuffer={handleClearBuffer} />
             <Paper elevation={0} sx={{ p: 3, display: 'flex', flexDirection: 'column' }}>
-              {/* Network Performance metrikleri - her zaman görüntülenecek */}
+              {/* Network Performance metrikleri */}
               <Typography variant="h5" fontWeight="600" sx={{ mb: 3 }}>Network Performance</Typography>
               {(['bandwidth', 'latency', 'packetLoss'] as const).map((key) => {
                 const value = networkMetrics[key];
@@ -724,7 +662,7 @@ function App() {
                 );
               })}
               
-              {/* Kontrol modu bilgilendirmesi - adaptive mode için bilgi mesajı */}
+              {/* Kontrol modu bilgilendirmesi */}
               {controlMode === 'adaptive' && (
                 <Box sx={{ mt: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
                   <Typography variant="subtitle1" fontWeight="600" gutterBottom>
@@ -736,7 +674,7 @@ function App() {
                 </Box>
               )}
               
-              {/* Kalite kontrolü - sadece manual modda gösterilecek */}
+              {/* Kalite kontrolü*/}
               {controlMode === 'manual' && (
                 <Box sx={{ mt: 'auto', pt: 3, borderTop: '1px solid', borderColor: 'rgba(0,0,0,0.1)' }}>
                   <Typography variant="subtitle2" gutterBottom>Manual Quality Control</Typography>
@@ -757,7 +695,6 @@ function App() {
 
 export default App;
 
-// Typescript için global değişken tanımı (window nesnesine yeni özellik ekle)
 declare global {
   interface Window {
     updateNetworkMetrics: ((metrics: NetworkMetricsType) => void) | null;

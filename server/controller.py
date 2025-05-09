@@ -7,13 +7,10 @@ import time
 import logging
 from typing import Dict, Literal, Tuple
 
-# Import configuration
 from config import QUALITY_THRESHOLDS, QUALITY_STABILITY_PERIOD, DEFAULT_QUALITY
 
-# Configure logging
 logger = logging.getLogger('controller')
 
-# Quality level type - Updated for 3 quality levels
 QualityLevel = Literal['low', 'medium', 'high']
 
 class AdaptiveQualityController:
@@ -159,7 +156,6 @@ class AdaptiveQualityController:
             self.quality_history.append(quality)
             self.last_change_time = time.time()
 
-# Example usage
 if __name__ == "__main__":
     # Configure logging
     logging.basicConfig(
@@ -167,7 +163,6 @@ if __name__ == "__main__":
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    # Create controller
     controller = AdaptiveQualityController()
     
     # Example metrics
@@ -179,7 +174,6 @@ if __name__ == "__main__":
         {'bandwidth': 7.0, 'latency': 30, 'packet_loss': 0.5},   # High quality
     ]
     
-    # Simulate changing network conditions
     for i, metrics in enumerate(metrics_samples):
         quality = controller.determine_quality(metrics)
         resolution = controller.get_resolution()

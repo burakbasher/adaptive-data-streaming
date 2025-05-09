@@ -13,10 +13,8 @@ import random
 import statistics
 from typing import Dict, List, Optional
 
-# Import configuration
 from config import QUALITY_THRESHOLDS
 
-# Configure logger
 logger = logging.getLogger('wifi_monitor')
 
 class NetworkMonitor:
@@ -26,13 +24,6 @@ class NetworkMonitor:
     """
     
     def __init__(self, test_server: str = '8.8.8.8', update_interval: float = 1.0):
-        """
-        Initialize the network monitor
-        
-        Args:
-            test_server: Server to use for ping tests (used only in fallback mode)
-            update_interval: Time between measurements in seconds
-        """
         self.test_server = test_server
         self.update_interval = update_interval
         self.running = False
@@ -55,31 +46,23 @@ class NetworkMonitor:
         
         logger.info(f"NetworkMonitor initialized (using client metrics)")
 
-    # Eski ölçüm metotlarını kaldırıyoruz, artık bunlara ihtiyacımız yok
-    # def _measure_bandwidth(self) -> float: ...
-    # def _measure_latency_and_packet_loss(self) -> tuple: ...
     
-    # Monitor loop artık client metriklerini bekliyor, kendi ölçüm yapmıyor
     def _monitor_loop(self) -> None:
         """Main monitoring loop - just keeps the thread alive for client updates"""
         while self.running:
             try:
-                # Just wait - client metrics will come via socket updates
                 time.sleep(self.update_interval)
                 
             except Exception as e:
                 logger.error(f"Error in monitor loop: {e}")
                 time.sleep(self.update_interval)
 
-    # Client'tan gelen metrikleri işleyen metot (değişiklik yok)
     def _update_metrics(self, bandwidth: float, latency: float, packet_loss: float) -> None:
         """Update the latest metrics with new measurements from client"""
-        # Update histories
         self._bandwidth_history.append(bandwidth)
         self._latency_history.append(latency)
         self._packet_loss_history.append(packet_loss)
         
-        # Trim histories if too long
         if len(self._bandwidth_history) > self._history_size:
             self._bandwidth_history = self._bandwidth_history[-self._history_size:]
         if len(self._latency_history) > self._history_size:
@@ -87,19 +70,16 @@ class NetworkMonitor:
         if len(self._packet_loss_history) > self._history_size:
             self._packet_loss_history = self._packet_loss_history[-self._history_size:]
         
-        # Calculate smoothed metrics (moving average)
         smoothed_bandwidth = statistics.mean(self._bandwidth_history)
         smoothed_latency = statistics.mean(self._latency_history)
         smoothed_packet_loss = statistics.mean(self._packet_loss_history)
         
-        # Update latest metrics
         self._latest_metrics = {
             'bandwidth': round(smoothed_bandwidth, 2),
             'latency': round(smoothed_latency, 2),
             'packet_loss': round(smoothed_packet_loss, 2)
         }
         
-        # Log updated metrics
         logger.debug(f"Updated metrics - Bandwidth: {self._latest_metrics['bandwidth']} Mbps, Latency: {self._latest_metrics['latency']} ms, Packet Loss: {self._latest_metrics['packet_loss']}%")
     
     def start(self) -> None:
@@ -124,21 +104,11 @@ class NetworkMonitor:
         logger.info("Network monitoring stopped")
     
     def get_metrics(self) -> Dict[str, float]:
-        """
-        Get the latest network metrics
-        
-        Returns:
-            Dictionary containing bandwidth, latency, and packet loss
-        """
+
         return self._latest_metrics.copy()
     
     def get_suggested_quality(self) -> str:
-        """
-        Get the suggested quality level based on current network metrics
         
-        Returns:
-            Suggested quality level ('low', 'medium', or 'high')
-        """
         bandwidth = self._latest_metrics['bandwidth']
         latency = self._latest_metrics['latency']
         packet_loss = self._latest_metrics['packet_loss']
@@ -154,29 +124,17 @@ class NetworkMonitor:
         else:
             return 'low'
 
-# Singleton pattern uygulanması
 _monitor_instance = None
 
 def get_network_monitor():
-    """Get or create the singleton NetworkMonitor instance"""
     global _monitor_instance
     if _monitor_instance is None:
         _monitor_instance = NetworkMonitor()
         _monitor_instance.start()
     return _monitor_instance
 
-# Utility function to run a real ping test
 def ping_test(host: str = '8.8.8.8', count: int = 5) -> tuple:
-    """
-    Run a ping test to measure latency and packet loss
-    
-    Args:
-        host: Host to ping
-        count: Number of pings to send
-    
-    Returns:
-        Tuple of (avg_latency, packet_loss_percent)
-    """
+   
     try:
         # Determine operating system
         os_name = platform.system().lower()
@@ -227,20 +185,16 @@ def ping_test(host: str = '8.8.8.8', count: int = 5) -> tuple:
         logger.error(f"Ping test failed: {e}")
         return 999.0, 100.0  # High values indicate failure
 
-# Example usage
 if __name__ == "__main__":
-    # Configure logging
     logging.basicConfig(
         level=logging.DEBUG,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    # Create and start monitor
     monitor = NetworkMonitor()
     monitor.start()
     
     try:
-        # Print metrics periodically
         for _ in range(20):
             metrics = monitor.get_metrics()
             suggested_quality = monitor.get_suggested_quality()
@@ -253,5 +207,4 @@ if __name__ == "__main__":
             
             time.sleep(1)
     finally:
-        # Stop the monitor
         monitor.stop()

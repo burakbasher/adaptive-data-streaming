@@ -8,12 +8,12 @@ import time
 class VideoStream:
     def __init__(self, base_path='server/data/sample_video'):
         self.lock = threading.Lock()
-        self.base_path = base_path  # örnek: "data/sample_video" → sample_video_360.mp4
+        self.base_path = base_path  #  sample_video_360.mp4
         self.video = None
         self.running = True
         self.is_playing = True
         self.playback_speed = 1.0
-        self.current_frame_index = 0  # kaldığı yer
+        self.current_frame_index = 0  
         self.total_frames = 0
         self.quality = 'medium'
         self.width, self.height = self._get_resolution_from_quality(self.quality)
@@ -118,18 +118,15 @@ class VideoStream:
             if not self.video or not self.video.isOpened() or not self.is_playing:
                 return None
 
-            # Adjust frame interval based on playback speed
             adjusted_interval = self.frame_interval / self.playback_speed
             
-            # Sabit FPS için zaman kontrolü
             current_time = time.time()
             elapsed = current_time - self.last_frame_time
             if elapsed < adjusted_interval:
                 return None
                 
-            # For speeds > 1, skip frames to maintain temporal synchronization
             if self.playback_speed > 1:
-                frames_to_skip = int((self.playback_speed - 1) * 2)  # Simple formula to determine skips
+                frames_to_skip = int((self.playback_speed - 1) * 2)  
                 for _ in range(frames_to_skip):
                     self.video.read()  # Skip frames
                     self.current_frame_index = int(self.video.get(cv2.CAP_PROP_POS_FRAMES))
@@ -156,5 +153,5 @@ class VideoStream:
             'is_playing': self.is_playing,
             'playback_speed': self.playback_speed,
             'quality': self.quality,
-            'buffer_size': 0  # Buffer bilgisi client tarafında tutulacak
+            'buffer_size': 0  
         }

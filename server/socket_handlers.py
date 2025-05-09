@@ -3,10 +3,8 @@ Socket.IO event handlers for the server
 """
 import logging
 
-# Configure logger
 logger = logging.getLogger('socket_handlers')
 
-# Import network monitoring functions
 from wifi_monitor import get_network_monitor
 
 def register_handlers(socketio):
@@ -28,7 +26,6 @@ def register_handlers(socketio):
             
             logger.info(f"Received metrics from client - Latency: {latency:.2f} ms, Packet Loss: {packet_loss:.2f}%, Bandwidth: {bandwidth:.2f} Mbps")
             
-            # Get the singleton instance and update metrics
             monitor = get_network_monitor()
             monitor._update_metrics(bandwidth, latency, packet_loss)
             

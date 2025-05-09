@@ -13,7 +13,6 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 LOGS_DIR = os.path.join(BASE_DIR, 'logs')
 SAMPLE_VIDEO_PATH = os.path.join(DATA_DIR, 'sample_video.mp4')
 
-# Ensure directories exist
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(LOGS_DIR, exist_ok=True)
 
@@ -53,11 +52,9 @@ QUALITY_THRESHOLDS = {
 
 # Stream settings
 FPS = 30  # Frames per second
-# Kararlılık süresini 10 saniyeden 2 saniyeye indirin
-QUALITY_STABILITY_PERIOD = 2.0  # seconds (changed from 10.0)
+QUALITY_STABILITY_PERIOD = 2.0  # seconds 
 DEFAULT_QUALITY = 'medium'  # Default quality level
 
-# Configure logging
 logging.basicConfig(
     level=LOG_LEVEL,
     format=LOG_FORMAT

@@ -10,10 +10,8 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Literal
 
-# Quality level type
 QualityLevel = Literal['low', 'medium', 'high']
 
-# Configure logging
 logger = logging.getLogger('log_writer')
 
 class MetricsLogger:
@@ -31,29 +29,26 @@ class MetricsLogger:
         self.log_dir = log_dir
         self._ensure_log_dir()
         
-        # Generate filenames with timestamps
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.metrics_filename = os.path.join(self.log_dir, f"network_metrics_{timestamp}.csv")
         self.quality_filename = os.path.join(self.log_dir, f"quality_changes_{timestamp}.csv")
         
-        # Initialize CSV files with headers
         self._init_metrics_csv()
         self._init_quality_csv()
         
         logger.info(f"MetricsLogger initialized. Metrics file: {self.metrics_filename}")
         logger.info(f"Quality changes file: {self.quality_filename}")
         
-        # Keep track of current quality for change detection
         self.current_quality = None
         
     def _ensure_log_dir(self) -> None:
-        """Create log directory if it doesn't exist"""
+        """Creates log directory if it doesn't exist"""
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
             logger.info(f"Created log directory: {self.log_dir}")
     
     def _init_metrics_csv(self) -> None:
-        """Initialize the network metrics CSV file with headers"""
+        """Initializes the network metrics CSV file with headers"""
         with open(self.metrics_filename, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow([
@@ -65,7 +60,7 @@ class MetricsLogger:
             ])
     
     def _init_quality_csv(self) -> None:
-        """Initialize the quality changes CSV file with headers"""
+        """Initializes the quality changes CSV file with headers"""
         with open(self.quality_filename, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow([
@@ -87,7 +82,6 @@ class MetricsLogger:
         """
         timestamp = datetime.now().isoformat()
         
-        # Log network metrics
         with open(self.metrics_filename, 'a', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow([
@@ -98,11 +92,9 @@ class MetricsLogger:
                 quality
             ])
         
-        # Check for quality changes
         if self.current_quality is not None and quality != self.current_quality:
             self.log_quality_change(self.current_quality, quality, metrics)
         
-        # Update current quality
         self.current_quality = quality
     
     def log_quality_change(self, previous_quality: QualityLevel, 
@@ -149,7 +141,6 @@ class MetricsLogger:
                 for row in reader:
                     metrics_history.append(dict(row))
                     
-                    # Apply limit if specified
                     if limit and len(metrics_history) >= limit:
                         break
         except Exception as e:
@@ -196,12 +187,10 @@ class MetricsLogger:
         metrics_history = self.get_metrics_history()
         quality_changes = self.get_quality_changes()
         
-        # Calculate basic statistics
         bandwidths = [float(m['bandwidth_mbps']) for m in metrics_history if 'bandwidth_mbps' in m]
         latencies = [float(m['latency_ms']) for m in metrics_history if 'latency_ms' in m]
         packet_losses = [float(m['packet_loss_percent']) for m in metrics_history if 'packet_loss_percent' in m]
         
-        # Quality distribution
         quality_distribution = {
             'low': 0,
             'medium': 0,
@@ -212,7 +201,6 @@ class MetricsLogger:
             if 'current_quality' in m and m['current_quality'] in quality_distribution:
                 quality_distribution[m['current_quality']] += 1
         
-        # Create summary
         summary = {
             'metrics_count': len(metrics_history),
             'quality_changes_count': len(quality_changes),
@@ -227,7 +215,6 @@ class MetricsLogger:
             'quality_distribution': quality_distribution
         }
         
-        # Write to file if specified
         if output_file:
             try:
                 with open(output_file, 'w', newline='') as outfile:
@@ -235,7 +222,6 @@ class MetricsLogger:
                     writer.writerow(['Metric', 'Value'])
                     
                     for key, value in summary.items():
-                        # Handle nested dictionary for quality distribution
                         if key == 'quality_distribution':
                             for quality, count in value.items():
                                 writer.writerow([f'Quality {quality}', count])
@@ -247,27 +233,21 @@ class MetricsLogger:
         
         return summary
 
-# Example usage
 if __name__ == "__main__":
-    # Configure logging
     logging.basicConfig(
         level=logging.DEBUG,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    # Create logger
     metrics_logger = MetricsLogger()
     
-    # Simulate logging some metrics
     for i in range(10):
-        # Generate some sample metrics
         metrics = {
             'bandwidth': 5.0 + (i * 0.5),
             'latency': 100.0 - (i * 5),
             'packet_loss': max(0, 5.0 - (i * 0.5))
         }
         
-        # Determine quality based on metrics
         if metrics['bandwidth'] > 8.0:
             quality = 'high'
         elif metrics['bandwidth'] > 4.0:
@@ -275,13 +255,11 @@ if __name__ == "__main__":
         else:
             quality = 'low'
             
-        # Log metrics
         metrics_logger.log_metrics(metrics, quality)
         
         # Wait a bit
         time.sleep(0.5)
     
-    # Generate summary report
     summary = metrics_logger.generate_summary_report('logs/summary.csv')
     
     print("Summary Report:")

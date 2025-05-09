@@ -10,7 +10,7 @@ class CameraStream:
         self.camera = None
         self.running = True
         self.width = 640
-        self.height = 360  # Changed to 360p (16:9) as default medium
+        self.height = 360  
         self.open_camera(self.width, self.height)
         self.quality = 'medium'  # Track current quality level
 
@@ -24,7 +24,6 @@ class CameraStream:
         actual_h = int(self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
         print(f"[CAMERA] Opened at {actual_w}x{actual_h}")
         
-        # Set quality based on resolution
         if width >= 1280 and height >= 720:
             self.quality = 'high'
         elif width >= 640 and height >= 360:

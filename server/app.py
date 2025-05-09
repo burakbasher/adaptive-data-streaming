@@ -8,18 +8,14 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": ["http://localhost:5173"]}})
 socketio = SocketIO(app, cors_allowed_origins=["http://localhost:5173", "*"])
 
-# NetworkMonitor'u import et
 from wifi_monitor import get_network_monitor
 
-# Socket handler'ları kaydet
 from socket_handlers import register_handlers
 register_handlers(socketio)
 
-# Sonra diğer modülleri import et
 from stream_controller import StreamController
 stream_controller = StreamController()
 
-# Network monitoring imports
 network_monitor = get_network_monitor()
 
 @app.route('/')
@@ -27,7 +23,6 @@ def index():
     return render_template('index.html')
 
 
-# Network metrikleri için REST API endpoint'i ekleyin
 @app.route('/api/network-metrics', methods=['GET'])
 def get_network_metrics():
     """API endpoint to get current network metrics"""
@@ -44,12 +39,10 @@ def get_network_metrics():
     return jsonify(response)
 
 
-# Diğer API endpoint'leri
 @app.route('/api/set-quality/<quality>', methods=['POST'])
 def api_set_quality(quality):
     if quality in ['low', 'medium', 'high']:
         try:
-            # Fix: Pass quality as a dictionary with 'quality' key
             stream_controller.handle_set_quality({'quality': quality})
             return jsonify({'success': True, 'quality': quality})
         except Exception as e:
@@ -88,7 +81,6 @@ def ping():
 @app.route('/test-file', methods=['GET'])
 def test_file():
     """Generate a test file for bandwidth measurement"""
-    # Create a 10 MB test file for more accurate measurement
     test_data = b'0' * 10 * 1024 * 1024
     
     response = app.response_class(

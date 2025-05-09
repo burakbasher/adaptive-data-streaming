@@ -8,13 +8,11 @@ import threading
 
 class StreamController:
     def __init__(self):
-        self.current_source = 'video'  # Default to video instead of camera
+        self.current_source = 'video'  
         
-        # Initialize video stream only (not camera)
         self.video_stream = VideoStream()
-        self.camera_stream = None  # Don't initialize camera on startup
-        
-        # Other initializations remain the same
+        self.camera_stream = None  
+
         self.running = True
         self.control_mode = 'manual'
         
@@ -39,7 +37,6 @@ class StreamController:
         last_applied_quality = None
         
         while self.running and self.control_mode == 'adaptive':
-            # Get current network metrics
             metrics = self.network_monitor.get_metrics()
             
             # Determine optimal quality
@@ -105,12 +102,7 @@ class StreamController:
             self.camera_stream.handle_set_resolution(data)
 
     def handle_set_quality(self, data):
-        """
-        Handle quality change request
-        
-        Args:
-            data: Dictionary containing quality setting
-        """
+
         quality = data.get('quality', 'medium')
         self.current_quality = quality  # Mevcut kaliteyi güncelle
         
@@ -142,7 +134,6 @@ class StreamController:
             self.video_stream.handle_seek(data.get('position', 0))
             
     def set_control_mode(self, mode):
-        """Change between manual and adaptive quality control"""
         if mode not in ['manual', 'adaptive']:
             return
             
@@ -159,8 +150,6 @@ class StreamController:
                 self.adaptive_quality_thread.daemon = True
                 self.adaptive_quality_thread.start()
         else:
-            # In manual mode, adaptive control thread will exit on next loop
-            # because we changed self.control_mode
             pass
 
     def get_stream_info(self):
@@ -170,11 +159,9 @@ class StreamController:
         elif self.current_source == 'camera':
             info = self.camera_stream.get_camera_info()
             
-        # Add common information
         info['control_mode'] = self.control_mode
         info['source'] = self.current_source
         
-        # Add network metrics if in adaptive mode
         if self.control_mode == 'adaptive':
             info['network_metrics'] = self.network_monitor.get_metrics()
             
@@ -190,7 +177,6 @@ class StreamController:
 
             if frame_data:
                 socketio.emit('image', frame_data)
-                # Send info for both video and camera
                 socketio.emit('video_info', self.get_stream_info())
 
             socketio.sleep(0.01)
@@ -208,18 +194,14 @@ class StreamController:
         Returns:
             Current quality level ('low', 'medium', or 'high')
         """
-        # Adaptive mod aktifse, adaptive controller'ın kalitesini döndür
         if self.control_mode == 'adaptive' and hasattr(self, 'adaptive_controller'):
             return self.adaptive_controller.current_quality
         
-        # Eğer video stream aktifse ve handle_set_quality metodu çağrıldıysa
         if self.current_source == 'video' and hasattr(self.video_stream, 'current_quality'):
             return self.video_stream.current_quality
         
-        # Eğer kamera stream aktifse ve handle_set_quality metodu çağrıldıysa
         if self.current_source == 'camera' and self.camera_stream and hasattr(self.camera_stream, 'current_quality'):
             return self.camera_stream.current_quality
             
-        # Varsayılan kaliteyi döndür
         return self.current_quality
 
