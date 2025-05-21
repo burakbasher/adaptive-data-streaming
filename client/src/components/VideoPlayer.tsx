@@ -1,3 +1,5 @@
+/**client/src/components/VideoPlayer.tsx**/
+
 import { Box, Card, CardContent, IconButton, Typography } from '@mui/material'
 import { HighQuality, Settings, FiberManualRecord } from '@mui/icons-material'
 import { useEffect, useRef } from 'react'

@@ -1,3 +1,5 @@
+/**client/src/components/NetworkMetrics.tsx**/""
+
 import { Box, Card, CardContent, Chip, Divider, Grid, LinearProgress, Typography } from '@mui/material'
 import { NetworkCheck, Speed, Warning, Timer } from '@mui/icons-material'
 

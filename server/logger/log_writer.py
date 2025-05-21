@@ -1,7 +1,4 @@
-"""
-Logger Module for Adaptive Streaming System
-Records network metrics and quality change events to CSV files
-"""
+"""server/logger/log_writer.py"""
 
 import os
 import csv

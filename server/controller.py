@@ -1,7 +1,4 @@
-"""
-Controller Module for Adaptive Streaming System
-Determines optimal streaming quality based on network metrics
-"""
+"""server/controller.py"""
 
 import time
 import logging

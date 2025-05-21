@@ -1,3 +1,5 @@
+/**client/src/components/WebRTCPlayer.tsx**/
+
 import React from 'react';
 import { useWebRTCPlayer } from '../hooks/useWebRTCPlayer';
 

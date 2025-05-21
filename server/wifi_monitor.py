@@ -1,7 +1,5 @@
-"""
-WiFi Network Monitor
-Measures network quality metrics for adaptive streaming
-"""
+"""server/wifi_monitor.py"""
+
 
 import time
 import logging

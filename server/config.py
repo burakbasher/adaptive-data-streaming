@@ -1,6 +1,4 @@
-"""
-Configuration settings for Adaptive Streaming System
-"""
+"""server/config"""
 
 import os
 import logging

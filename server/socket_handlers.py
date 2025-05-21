@@ -1,6 +1,5 @@
-"""
-Socket.IO event handlers for the server
-"""
+"""server/socket_handlers.py"""
+
 import logging
 
 logger = logging.getLogger('socket_handlers')

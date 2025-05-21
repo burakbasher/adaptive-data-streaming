@@ -1,3 +1,5 @@
+"""server/video_stream.py"""
+
 import cv2
 import base64
 import threading

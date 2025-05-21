@@ -1,6 +1,8 @@
-import { 
-  Box, Container, CssBaseline, ThemeProvider, Typography, createTheme, 
-  Paper, LinearProgress, ButtonGroup, Button, CircularProgress 
+/**client/src/App.tsx**/
+
+import {
+  Box, Container, CssBaseline, ThemeProvider, Typography, createTheme,
+  Paper, LinearProgress, ButtonGroup, Button, CircularProgress
 } from '@mui/material';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
@@ -42,12 +44,12 @@ const theme = createTheme({
 });
 
 // Update the VideoPlayer component props type
-function VideoPlayer({ 
-  videoQuality, 
+function VideoPlayer({
+  videoQuality,
   onQualityChange,
-  onClearBuffer 
-}: { 
-  videoQuality: QualityLevel; 
+  onClearBuffer
+}: {
+  videoQuality: QualityLevel;
   onQualityChange?: (quality: QualityLevel) => void;
   onClearBuffer?: (clearBufferFn: () => void) => void;
 }) {
@@ -63,7 +65,7 @@ function VideoPlayer({
   const [bufferSize, setBufferSize] = useState(0);
   const lastFrameTimeRef = useRef<number>(0);
   const requestAnimationRef = useRef<number | undefined>(undefined);
-  
+
   // Constants - Basic buffer size
   const MAX_BUFFER_SIZE = 300; // Standard buffer size
   const TARGET_FPS = 30;
@@ -89,8 +91,8 @@ function VideoPlayer({
     const containerWidth = container.clientWidth;
     const containerHeight = container.clientHeight;
 
-    
-    let aspectRatio = 16/9; 
+
+    let aspectRatio = 16 / 9;
 
     // Calculate dimensions to fit container while maintaining aspect ratio
     let width, height;
@@ -114,17 +116,17 @@ function VideoPlayer({
   const drawTimeline = useCallback((progress: number) => {
     const timeline = timelineRef.current;
     if (!timeline) return;
-    
+
     const ctx = timeline.getContext('2d');
     if (!ctx) return;
-    
+
     ctx.clearRect(0, 0, timeline.width, timeline.height);
-    
+
     // Progress bar
     const fillWidth = progress * timeline.width;
     ctx.fillStyle = '#22c55e';
     ctx.fillRect(0, 0, fillWidth, timeline.height);
-    
+
     // Progress line
     ctx.strokeStyle = '#000';
     ctx.beginPath();
@@ -136,10 +138,10 @@ function VideoPlayer({
   // Play next frame from buffer - simple version
   const playNextFrame = useCallback(() => {
     if (!isPlaying) return;
-    
+
     const now = performance.now();
     const elapsed = now - lastFrameTimeRef.current;
-    
+
     if (elapsed >= FRAME_INTERVAL / playbackSpeed && frameBufferRef.current.length > 0) {
       const frame = frameBufferRef.current.shift() || '';
       const canvas = canvasRef.current;
@@ -156,7 +158,7 @@ function VideoPlayer({
       lastFrameTimeRef.current = now;
       setBufferSize(frameBufferRef.current.length);
     }
-    
+
     requestAnimationRef.current = requestAnimationFrame(playNextFrame);
   }, [isPlaying, playbackSpeed]);
 
@@ -164,16 +166,16 @@ function VideoPlayer({
   const handleTimelineClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const timeline = timelineRef.current;
     if (!timeline) return;
-    
+
     const rect = timeline.getBoundingClientRect();
     const position = (e.clientX - rect.left) / rect.width;
-    
-  // Clear buffer function
-  const clearBuffer = useCallback(() => {
-    frameBufferRef.current = [];
-    setBufferSize(0);
-    console.log("Buffer cleared!");
-  }, []);
+
+    // Clear buffer function
+    const clearBuffer = useCallback(() => {
+      frameBufferRef.current = [];
+      setBufferSize(0);
+      console.log("Buffer cleared!");
+    }, []);
     socketRef.current?.emit('seek', { position });
   }, []);
 
@@ -224,7 +226,7 @@ function VideoPlayer({
         setCurrentFrame(info.current_frame || 0);
         setTotalFrames(info.total_frames || 0);
         setIsPlaying(info.is_playing || true);
-        
+
         const progress = info.total_frames ? info.current_frame / info.total_frames : 0;
         drawTimeline(progress);
       }
@@ -267,7 +269,7 @@ function VideoPlayer({
           alignItems: 'center',
         }}
       >
-        <canvas 
+        <canvas
           ref={canvasRef}
           style={{
             maxWidth: '100%',
@@ -275,9 +277,9 @@ function VideoPlayer({
             objectFit: 'contain'
           }}
         />
-        
+
         {/*  buffer  */}
-        <Box sx={{ 
+        <Box sx={{
           position: 'absolute',
           bottom: 0,
           left: 0,
@@ -286,18 +288,18 @@ function VideoPlayer({
           bgcolor: 'rgba(200, 200, 200, 0.5)',
           pointerEvents: 'none'
         }}>
-          <Box sx={{ 
+          <Box sx={{
             height: '100%',
             bgcolor: 'rgba(100, 100, 100, 0.5)',
             width: `${(bufferSize / MAX_BUFFER_SIZE) * 100}%`,
             transition: 'width 0.1s ease-out'
-          }}/>
+          }} />
         </Box>
       </Box>
-      
+
       {/* Timeline */}
       <Box sx={{ mb: 1 }}>
-        <canvas 
+        <canvas
           ref={timelineRef}
           width={640}
           height={20}
@@ -332,15 +334,15 @@ function VideoPlayer({
             ))}
           </ButtonGroup>
         )}
-        
+
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" onClick={togglePlayPause}>
             {isPlaying ? 'Pause' : 'Play'}
           </Button>
           <ButtonGroup size="small">
             {SPEEDS.map(speed => (
-              <Button 
-                key={speed} 
+              <Button
+                key={speed}
                 variant={playbackSpeed === speed ? 'contained' : 'outlined'}
                 onClick={() => changeSpeed(speed)}
               >
@@ -356,7 +358,7 @@ function VideoPlayer({
 
 function measureNetworkMetrics(socket: Socket) {
   const startTime = performance.now();
-  
+
   // Ping ölçümü
   fetch('http://localhost:3000/ping', {
     mode: 'cors',
@@ -369,10 +371,10 @@ function measureNetworkMetrics(socket: Socket) {
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
-      
+
       // Latency  (ms)
       const latency = performance.now() - startTime;
-      
+
       Promise.all([
         measureActualBandwidth(),
         measurePacketLoss()
@@ -382,10 +384,10 @@ function measureNetworkMetrics(socket: Socket) {
           packet_loss: packetLoss,
           bandwidth
         };
-        
+
         socket.emit('network_metrics', metrics);
         console.log(`Network metrics - Latency: ${latency.toFixed(2)}ms, Packet Loss: ${packetLoss.toFixed(2)}%, Bandwidth: ${bandwidth.toFixed(2)} Mbps`);
-        
+
         if (window.updateNetworkMetrics) {
           window.updateNetworkMetrics({
             bandwidth: bandwidth,
@@ -397,86 +399,86 @@ function measureNetworkMetrics(socket: Socket) {
     })
     .catch(error => {
       console.warn('Ping test failed, using fallback metrics:', error);
-      
+
       const fallbackMetrics = {
         latency: 200,
         packet_loss: 5,
         bandwidth: 1.5
       };
-      
+
       socket.emit('network_metrics', fallbackMetrics);
     });
-  
+
 }
 
 async function measureActualBandwidth(): Promise<number> {
   try {
     const fileSize = 10 * 1024 * 1024; // 10MB
     const startTime = performance.now();
-    
+
     const response = await fetch('http://localhost:3000/test-file', {
-      cache: 'no-store', 
+      cache: 'no-store',
       headers: {
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
       }
     });
-    
+
     if (!response.ok) throw new Error('Test file download failed');
-    
+
     await response.arrayBuffer();
     const endTime = performance.now();
-    
+
     const durationInSeconds = (endTime - startTime) / 1000;
-    
-    const isLocalhost = window.location.hostname === 'localhost' || 
-                        window.location.hostname === '127.0.0.1';
+
+    const isLocalhost = window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1';
 
     if (durationInSeconds < 0.1 && !isLocalhost) {
       console.warn('Download time too short, might be cached or error');
-      return 5.0; 
+      return 5.0;
     }
-    
+
     const bandwidth = (fileSize * 8) / 1000000 / durationInSeconds;
-    
+
     return Math.min(Math.max(bandwidth, 0.5), 10000);
   } catch (error) {
     console.error("Bandwidth measurement failed:", error);
-    return 3.0; 
+    return 3.0;
   }
 }
 
 async function measurePacketLoss(): Promise<number> {
   try {
-    const pingCount = 10; 
+    const pingCount = 10;
     let successCount = 0;
     const pingPromises = [];
-    
+
     for (let i = 0; i < pingCount; i++) {
       const promise = fetch(`http://localhost:3000/ping?seq=${i}&t=${Date.now()}`, {
         mode: 'cors',
         cache: 'no-store',
-        headers: { 
+        headers: {
           'Accept': 'application/json',
           'Cache-Control': 'no-cache'
         }
       })
-      .then(res => {
-        if (res.ok) successCount++;
-        return res.ok;
-      })
-      .catch(() => false); 
-      
+        .then(res => {
+          if (res.ok) successCount++;
+          return res.ok;
+        })
+        .catch(() => false);
+
       pingPromises.push(promise);
     }
-    
+
     await Promise.all(pingPromises);
-    
+
     const packetLoss = ((pingCount - successCount) / pingCount) * 100;
     return packetLoss;
   } catch (error) {
     console.error("Packet loss measurement failed:", error);
-    return 1.0; 
+    return 1.0;
   }
 }
 
@@ -496,15 +498,15 @@ function App() {
     clearBufferRef.current = clearBufferFn;
   }, []);
 
-  
-  
+
+
   useEffect(() => {
     if (controlMode === 'adaptive') {
       const fetchQualityInfo = async () => {
         try {
           const res = await fetch(`${API_URL}/api/network-metrics`);
           const data = await res.json();
-          
+
           if (data.current_quality) {
             setVideoQuality(data.current_quality as QualityLevel);
           }
@@ -512,19 +514,19 @@ function App() {
           console.error('Quality info fetch error:', err);
         }
       };
-      
+
       fetchQualityInfo();
       const interval = setInterval(fetchQualityInfo, 2000); // Her 2 saniyede bir
       return () => clearInterval(interval);
     }
   }, [controlMode]);
-  
+
   useEffect(() => {
     window.updateNetworkMetrics = (metrics: NetworkMetricsType) => {
       console.log("UI updating metrics:", metrics);
       setNetworkMetrics(metrics);
     };
-    
+
     return () => {
       window.updateNetworkMetrics = null;
     };
@@ -532,16 +534,16 @@ function App() {
 
   const changeQuality = async (quality: QualityLevel) => {
     try {
-      const response = await fetch(`${API_URL}/api/set-quality/${quality}`, { 
-        method: 'POST' 
+      const response = await fetch(`${API_URL}/api/set-quality/${quality}`, {
+        method: 'POST'
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Quality change server error:', errorData);
         return;
       }
-      
+
       setVideoQuality(quality);
     } catch (err) {
       console.error('Quality change network error:', err);
@@ -554,7 +556,7 @@ function App() {
         console.log(`Clearing buffer before switching to ${source} mode`);
         clearBufferRef.current();
       }
-      
+
       setStreamSource(source);
       await fetch(`${API_URL}/api/set-source/${source}`, { method: 'POST' });
     } catch (err) {
@@ -577,7 +579,7 @@ function App() {
 
   useEffect(() => {
     window.updateNetworkMetrics = setNetworkMetrics;
-    
+
     return () => {
       window.updateNetworkMetrics = null;
     };
@@ -592,20 +594,20 @@ function App() {
             <Typography variant="h1" gutterBottom>Adaptive Streaming Dashboard</Typography>
             <Typography variant="subtitle1" color="text.secondary">Real-time video quality adaptation based on network conditions</Typography>
           </Box>
-          
+
           {/* Stream Settings Controls */}
           <Paper elevation={0} sx={{ p: 2, mb: 3 }}>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
               <Box>
                 <Typography variant="subtitle2" gutterBottom>Source</Typography>
                 <ButtonGroup>
-                  <Button 
+                  <Button
                     variant={streamSource === 'video' ? 'contained' : 'outlined'}
                     onClick={() => handleSourceChange('video')}
                   >
                     Video
                   </Button>
-                  <Button 
+                  <Button
                     variant={streamSource === 'camera' ? 'contained' : 'outlined'}
                     onClick={() => handleSourceChange('camera')}
                   >
@@ -613,17 +615,17 @@ function App() {
                   </Button>
                 </ButtonGroup>
               </Box>
-              
+
               <Box>
                 <Typography variant="subtitle2" gutterBottom>Control Mode</Typography>
                 <ButtonGroup>
-                  <Button 
+                  <Button
                     variant={controlMode === 'manual' ? 'contained' : 'outlined'}
                     onClick={() => handleControlModeChange('manual')}
                   >
                     Manual
                   </Button>
-                  <Button 
+                  <Button
                     variant={controlMode === 'adaptive' ? 'contained' : 'outlined'}
                     onClick={() => handleControlModeChange('adaptive')}
                   >
@@ -633,7 +635,7 @@ function App() {
               </Box>
             </Box>
           </Paper>
-          
+
           <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, flex: 1, minHeight: 0 }}>
             <VideoPlayer videoQuality={videoQuality} onQualityChange={controlMode === 'manual' ? changeQuality : undefined} onClearBuffer={handleClearBuffer} />
             <Paper elevation={0} sx={{ p: 3, display: 'flex', flexDirection: 'column' }}>
@@ -661,7 +663,7 @@ function App() {
                   </Box>
                 );
               })}
-              
+
               {/* Kontrol modu bilgilendirmesi */}
               {controlMode === 'adaptive' && (
                 <Box sx={{ mt: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
@@ -673,7 +675,7 @@ function App() {
                   </Typography>
                 </Box>
               )}
-              
+
               {/* Kalite kontrolü*/}
               {controlMode === 'manual' && (
                 <Box sx={{ mt: 'auto', pt: 3, borderTop: '1px solid', borderColor: 'rgba(0,0,0,0.1)' }}>

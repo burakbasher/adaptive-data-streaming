@@ -1,3 +1,5 @@
+"""server/stream_controller.py"""
+
 from flask_socketio import SocketIO
 from camera_stream import CameraStream
 from video_stream import VideoStream
